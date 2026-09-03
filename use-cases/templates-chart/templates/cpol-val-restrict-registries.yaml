@@ -1,0 +1,44 @@
+{{- if and .Values.policies.validate.enabled .Values.policies.validate.restrictRegistries.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-untrusted-registries
+  annotations:
+    policies.kyverno.io/title: Restrict Image Registries
+    policies.kyverno.io/category: Image Registry
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Only allow images from approved registries, configured in values.yaml
+      (policies.validate.restrictRegistries.approvedRegistries).
+      This prevents pulling untrusted images that may contain malware.
+      Customizable via values.yaml - modify approved registries, resource kinds, and namespace selector.
+    customizable: "true"
+    values-path: "policies.validate.restrictRegistries"
+spec:
+  validationFailureAction: {{ .Values.policies.validate.restrictRegistries.failureAction | default "enforce" }}
+  background: {{ .Values.global.background | default true }}
+  rules:
+  - name: validate-registry
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.validate.restrictRegistries.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.validate.restrictRegistries.namespaceSelector.matchLabels }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.validate.restrictRegistries.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    validate:
+      message: "Image registry is not approved. Allowed: {{ join ", " .Values.policies.validate.restrictRegistries.approvedRegistries }}"
+      pattern:
+        spec:
+          containers:
+          - image: "{{ range $i, $r := .Values.policies.validate.restrictRegistries.approvedRegistries }}{{ if $i }} | {{ end }}{{ $r }}/*{{ end }}"
+      # Also validate init containers if present
+      # This is a basic example; real production might need more complex logic
+{{- end }}
+

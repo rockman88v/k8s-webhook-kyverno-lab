@@ -1,0 +1,478 @@
+# Kyverno Helm Values - Custom Template
+# Copy this file and modify for your organization
+# Example: cp values-custom.yaml values-prod.yaml
+# Then deploy: helm upgrade kyverno ./templates-chart -f values-prod.yaml
+
+# Copy and uncomment the sections you want to customize
+# Lines with # are comments and will be ignored
+
+#==============================================================================
+# EXAMPLE 1: DEVELOPMENT ENVIRONMENT CUSTOMIZATION
+#==============================================================================
+# Use this for permissive settings during development
+# Uncomment and deploy: helm upgrade kyverno . -f values-dev.yaml
+
+# policies:
+#   validate:
+#     enabled: false  # Skip validation in dev
+#   mutate:
+#     enabled: true
+#     addDefaultLabels:
+#       enabled: false  # Skip labeling in dev
+#     addSecurityContext:
+#       enabled: false  # Too strict for dev
+#     addDefaultResources:
+#       enabled: true
+#       failureAction: audit
+#       resources:
+#         requests:
+#           cpu: "10m"
+#           memory: "32Mi"
+#         limits:
+#           cpu: "100m"
+#           memory: "128Mi"
+#   generate:
+#     enabled: false  # Skip resource generation
+
+
+#==============================================================================
+# EXAMPLE 2: PRODUCTION ENVIRONMENT CUSTOMIZATION
+#==============================================================================
+# Use this for strict settings in production
+# Uncomment and deploy: helm upgrade kyverno . -f values-prod.yaml
+
+# policies:
+#   mutate:
+#     addDefaultLabels:
+#       enabled: true
+#       failureAction: enforce  # Block if policy fails
+#       labels:
+#         managed-by: "kyverno"
+#         environment: "production"
+#       additionalLabels:
+#         compliance: "required"
+#         team: "platform"
+#     
+#     addSecurityContext:
+#       enabled: true
+#       failureAction: enforce  # Strict security enforcement
+#       securityContext:
+#         runAsNonRoot: true
+#         runAsUser: 1000
+#         readOnlyRootFilesystem: true
+#         allowPrivilegeEscalation: false
+#     
+#     addDefaultResources:
+#       enabled: true
+#       failureAction: enforce
+#       resources:
+#         requests:
+#           cpu: "250m"
+#           memory: "256Mi"
+#         limits:
+#           cpu: "1000m"
+#           memory: "1Gi"
+#   
+#   generate:
+#     enabled: true
+#     generateNetworkPolicy:
+#       enabled: true
+#       namespaceSelector:
+#         matchLabels:
+#           network-policy: "enabled"
+#     generateResourceQuota:
+#       enabled: true
+
+
+#==============================================================================
+# EXAMPLE 3: CUSTOM LABELS FOR YOUR ORGANIZATION
+#==============================================================================
+
+# policies:
+#   mutate:
+#     addDefaultLabels:
+#       enabled: true
+#       failureAction: audit
+#       namespaceSelector:
+#         matchLabels:
+#           auto-label: "true"
+#       labels:
+#         managed-by: "kyverno"
+#         environment: "{{ request.namespace }}"
+#       additionalLabels:
+#         cost-center: "engineering"
+#         owner-email: "platform-team@company.com"
+#         compliance-approved: "true"
+#         team: "backend"
+
+
+#==============================================================================
+# EXAMPLE 4: CUSTOM RESOURCE DEFAULTS
+#==============================================================================
+
+# policies:
+#   mutate:
+#     addDefaultResources:
+#       enabled: true
+#       failureAction: audit
+#       namespaceSelector:
+#         matchLabels:
+#           auto-resources: "true"
+#       resources:
+#         requests:
+#           cpu: "100m"
+#           memory: "128Mi"
+#         limits:
+#           cpu: "500m"
+#           memory: "512Mi"
+#       namespaceDefaults:
+#         dev:
+#           requests:
+#             cpu: "50m"
+#             memory: "64Mi"
+#           limits:
+#             cpu: "200m"
+#             memory: "256Mi"
+#         staging:
+#           requests:
+#             cpu: "100m"
+#             memory: "128Mi"
+#           limits:
+#             cpu: "500m"
+#             memory: "512Mi"
+#         prod:
+#           requests:
+#             cpu: "500m"
+#             memory: "512Mi"
+#           limits:
+#             cpu: "2000m"
+#             memory: "2Gi"
+
+
+#==============================================================================
+# EXAMPLE 5: CUSTOM ISTIO VERSION
+#==============================================================================
+
+# policies:
+#   mutate:
+#     injectIstioSidecar:
+#       enabled: true
+#       failureAction: audit
+#       namespaceSelector:
+#         matchLabels:
+#           istio-injection: "enabled"
+#       image:
+#         repository: "istio/proxyv2"
+#         tag: "1.18.0"  # Change Istio version here
+#       excludeNamespaces:
+#         - kyverno
+#         - kube-system
+#         - istio-system
+
+
+#==============================================================================
+# EXAMPLE 6: CUSTOM SECURITY CONTEXT
+#==============================================================================
+
+# policies:
+#   mutate:
+#     addSecurityContext:
+#       enabled: true
+#       failureAction: audit
+#       namespaceSelector:
+#         matchLabels:
+#           enforce-security: "true"
+#       securityContext:
+#         runAsNonRoot: true
+#         runAsUser: 1000
+#         readOnlyRootFilesystem: true
+#         allowPrivilegeEscalation: false
+#         capabilities:
+#           drop:
+#             - ALL
+#       excludeContainers:
+#         - postgres
+#         - mongodb
+#         - cache
+
+
+#==============================================================================
+# EXAMPLE 7: CUSTOM PROMETHEUS SETTINGS
+#==============================================================================
+
+# policies:
+#   mutate:
+#     addMonitoringAnnotations:
+#       enabled: true
+#       failureAction: audit
+#       namespaceSelector:
+#         matchLabels:
+#           monitoring: "enabled"
+#       annotations:
+#         prometheus.io/scrape: "true"
+#         prometheus.io/port: "9090"      # Custom port
+#         prometheus.io/path: "/metrics"
+#         prometheus.io/scheme: "https"   # HTTPS instead of HTTP
+
+
+#==============================================================================
+# EXAMPLE 8: CUSTOM RESOURCE QUOTAS
+#==============================================================================
+
+# policies:
+#   generate:
+#     generateResourceQuota:
+#       enabled: true
+#       resourceKinds:
+#         - Namespace
+#       quotas:
+#         dev:
+#           ruleName: "create-dev-quota"
+#           namespaceSelector:
+#             matchLabels:
+#               env: "development"
+#           quotaName: "dev-quota"
+#           hard:
+#             requests.cpu: "2"
+#             requests.memory: "4Gi"
+#             limits.cpu: "5"
+#             limits.memory: "10Gi"
+#             pods: "50"
+#         staging:
+#           ruleName: "create-staging-quota"
+#           namespaceSelector:
+#             matchLabels:
+#               env: "staging"
+#           quotaName: "staging-quota"
+#           hard:
+#             requests.cpu: "10"
+#             requests.memory: "50Gi"
+#             limits.cpu: "20"
+#             limits.memory: "100Gi"
+#             pods: "200"
+#         prod:
+#           ruleName: "create-prod-quota"
+#           namespaceSelector:
+#             matchLabels:
+#               env: "production"
+#           quotaName: "prod-quota"
+#           hard:
+#             requests.cpu: "100"
+#             requests.memory: "500Gi"
+#             limits.cpu: "200"
+#             limits.memory: "1000Gi"
+#             pods: "1000"
+
+
+#==============================================================================
+# EXAMPLE 15: CUSTOM GENERATE - NETWORKPOLICY, LIMITRANGE, AND SECRET CLONE
+#==============================================================================
+# Customize generated resource names, selector, ingress allow-list, limits, and secrets.
+
+# policies:
+#   generate:
+#     generateNetworkPolicy:
+#       enabled: true
+#       resourceKinds:
+#         - Namespace
+#       namespaceSelector:
+#         matchLabels:
+#           network-policy: "enabled"
+#       policyName: "allow-web-ingress"
+#       podSelector:
+#         matchLabels:
+#           tier: "web"
+#       policyTypes:
+#         - Ingress
+#       allowedPorts:
+#         - port: 443
+#           protocol: TCP
+#
+#     generateLimitRange:
+#       enabled: true
+#       namespaceSelector:
+#         matchLabels:
+#           manage-limits: "true"
+#       limitRangeName: "application-limits"
+#       containerLimits:
+#         defaultRequest:
+#           cpu: "250m"
+#           memory: "256Mi"
+#
+#     cloneRegistrySecrets:
+#       enabled: true
+#       namespaceSelector:
+#         matchLabels:
+#           clone-secrets: "true"
+#       sourceNamespace: "platform-secrets"
+#       secretName: "private-registry"
+#       targetSecretName: "private-registry"
+#
+#     cloneSecretOnNamespaceCreation:
+#       enabled: true
+#       namespaceSelector:
+#         matchLabels:
+#           clone-application-secret: "true"
+#       sourceNamespace: "platform-secrets"
+#       sourceSecretName: "application-config"
+#       targetSecretName: "application-config"
+
+
+#==============================================================================
+# EXAMPLE 9: SELECTIVE POLICIES ONLY
+#==============================================================================
+# Enable only security-related policies, disable others
+
+# policies:
+#   validate:
+#     enabled: false
+#   mutate:
+#     enabled: true
+#     addDefaultLabels:
+#       enabled: false
+#     addSecurityContext:
+#       enabled: true     # Only security context
+#     injectIstioSidecar:
+#       enabled: false
+#     addDefaultResources:
+#       enabled: false
+#     addMonitoringAnnotations:
+#       enabled: false
+#   generate:
+#     enabled: false
+
+
+#==============================================================================
+# EXAMPLE 10: GLOBAL SETTINGS OVERRIDE
+#==============================================================================
+
+# global:
+#   # All policies use this failure action (unless overridden per-policy)
+#   defaultFailureAction: "enforce"
+#   
+#   # System namespaces to always exclude
+#   excludeNamespaces:
+#     - kube-system
+#     - kube-public
+#     - kyverno
+#     - default
+#     - monitoring
+#     - logging
+#   
+#   # Apply policies to existing resources
+#   background: true
+#   
+#   # Validation failure mode
+#   validationFailureAction: "enforce"
+
+
+#==============================================================================
+# EXAMPLE 11: CUSTOM VALIDATE - REQUIRE LABELS
+#==============================================================================
+# Change which labels are mandatory and on which resource kinds
+
+# policies:
+#   validate:
+#     requireLabels:
+#       enabled: true
+#       failureAction: enforce
+#       resourceKinds:
+#         - Pod
+#         - Deployment
+#         - StatefulSet
+#       requiredLabels:
+#         - app
+#         - team
+#         - cost-center
+#       namespaceSelector:
+#         matchLabels:
+#           require-labels: "true"   # Leave matchLabels: {} for cluster-wide
+
+
+#==============================================================================
+# EXAMPLE 12: CUSTOM VALIDATE - RESTRICT REGISTRIES
+#==============================================================================
+# Change which registries are approved and which resource kinds are checked
+
+# policies:
+#   validate:
+#     restrictRegistries:
+#       enabled: true
+#       failureAction: enforce
+#       resourceKinds:
+#         - Pod
+#         - Deployment
+#         - StatefulSet
+#         - DaemonSet
+#       approvedRegistries:
+#         - "myregistry.company.com"
+#         - "gcr.io"
+#       namespaceSelector:
+#         matchLabels: {}   # cluster-wide
+
+
+#==============================================================================
+# EXAMPLE 13: CUSTOM VALIDATE - RESOURCE KINDS & NAMESPACE SCOPE
+#==============================================================================
+# Apply disallowRoot only to Pods in namespaces labeled enforce-security=true,
+# and enforceResources to Pod/Deployment/Job in namespaces labeled require-resources=true
+
+# policies:
+#   validate:
+#     disallowRoot:
+#       enabled: true
+#       failureAction: enforce
+#       resourceKinds:
+#         - Pod
+#       namespaceSelector:
+#         matchLabels:
+#           enforce-security: "true"
+#     enforceResources:
+#       enabled: true
+#       failureAction: enforce
+#       resourceKinds:
+#         - Pod
+#         - Deployment
+#         - Job
+#       namespaceSelector:
+#         matchLabels:
+#           require-resources: "true"
+
+
+#==============================================================================
+# EXAMPLE 14: CUSTOM VALIDATE - REQUIRE IMAGE DIGEST (SELECTIVE KINDS)
+#==============================================================================
+
+# policies:
+#   validate:
+#     requireImageDigest:
+#       enabled: true
+#       failureAction: audit
+#       resourceKinds:
+#         - Deployment
+#         - StatefulSet
+#       namespaceSelector:
+#         matchLabels:
+#           require-image-digest: "true"
+
+
+#==============================================================================
+# HOW TO USE THIS FILE
+#==============================================================================
+# 
+# 1. Copy this template:
+#    cp use-cases/templates-chart/values-custom.yaml values-myorg.yaml
+#
+# 2. Uncomment and modify the example that matches your needs
+#
+# 3. Deploy with custom values:
+#    helm upgrade kyverno ./use-cases/templates-chart -f values-myorg.yaml
+#
+# 4. Verify policies are applied:
+#    kubectl get clusterpolicy
+#    helm get values kyverno
+#
+# 5. Test with sample workloads:
+#    kubectl run test-pod --image=nginx -n test-namespace
+#
+#==============================================================================

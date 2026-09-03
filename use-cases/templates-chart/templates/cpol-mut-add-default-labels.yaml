@@ -1,0 +1,41 @@
+{{- if and .Values.policies.mutate.enabled .Values.policies.mutate.addDefaultLabels.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-default-labels
+  annotations:
+    policies.kyverno.io/title: Add Default Labels
+    policies.kyverno.io/category: Workload Management
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/description: >-
+      Automatically adds default labels to pods for tracking and management.
+      Customizable via values.yaml - modify labels, namespaces, and behavior.
+    customizable: "true"
+    values-path: "policies.mutate.addDefaultLabels"
+spec:
+  mutationFailureAction: {{ .Values.policies.mutate.addDefaultLabels.failureAction | default "audit" }}
+  background: {{ .Values.global.background | default true }}
+  rules:
+  - name: add-default-labels
+    match:
+      resources:
+        kinds:
+        - Pod
+      {{- if .Values.policies.mutate.addDefaultLabels.namespaceSelector }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          labels:
+            {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.labels }}
+            {{ $key }}: "{{ tpl $value . }}"
+            {{- end }}
+            {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.additionalLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+{{- end }}

@@ -1,0 +1,46 @@
+{{- if and .Values.policies.validate.enabled .Values.policies.validate.enforceResources.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-resource-quotas
+  annotations:
+    policies.kyverno.io/title: Enforce Resource Requests and Limits
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      All containers MUST specify resource requests and limits
+      to ensure predictable cluster scheduling and prevent resource exhaustion.
+      Customizable via values.yaml - modify resource kinds and namespace selector.
+    customizable: "true"
+    values-path: "policies.validate.enforceResources"
+spec:
+  validationFailureAction: {{ .Values.policies.validate.enforceResources.failureAction | default "audit" }}
+  rules:
+  - name: validate-resources
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.validate.enforceResources.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.validate.enforceResources.namespaceSelector.matchLabels }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.validate.enforceResources.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    validate:
+      message: "CPU and memory requests/limits are required for all containers"
+      pattern:
+        spec:
+          containers:
+          - resources:
+              requests:
+                memory: "?*"
+                cpu: "?*"
+              limits:
+                memory: "?*"
+                cpu: "?*"
+{{- end }}
+

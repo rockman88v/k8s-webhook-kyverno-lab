@@ -1,0 +1,49 @@
+{{- if and .Values.policies.generate.enabled .Values.policies.generate.generateResourceQuota.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-resource-quotas
+  annotations:
+    policies.kyverno.io/title: Generate Resource Quota
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Automatically create ResourceQuota in new namespaces to limit
+      total resources that can be consumed. Prevents resource hogging.
+      Customizable via values.yaml - modify trigger resource kinds, selectors, and quota limits.
+    customizable: "true"
+    values-path: "policies.generate.generateResourceQuota"
+spec:
+  rules:
+  {{- range $quotaKey, $quota := .Values.policies.generate.generateResourceQuota.quotas }}
+  - name: {{ $quota.ruleName | default (printf "create-%s-quota" $quotaKey) }}
+    match:
+      resources:
+        kinds:
+          {{- range $.Values.policies.generate.generateResourceQuota.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+        {{- if $quota.namespaceSelector.matchLabels }}
+        selector:
+          matchLabels:
+            {{- range $key, $value := $quota.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
+    generate:
+      kind: ResourceQuota
+      name: {{ $quota.quotaName }}
+      namespace: "{{ "{{ request.object.metadata.name }}" }}"
+      data:
+        apiVersion: v1
+        kind: ResourceQuota
+        metadata:
+          name: {{ $quota.quotaName }}
+          namespace: "{{ "{{ request.object.metadata.name }}" }}"
+        spec:
+          hard:
+            {{- range $key, $value := $quota.hard }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+  {{- end }}
+{{- end }}

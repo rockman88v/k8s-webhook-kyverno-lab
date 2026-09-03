@@ -1,0 +1,70 @@
+{{- if and .Values.policies.mutate.enabled .Values.policies.mutate.injectIstioSidecar.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-istio-sidecar-auto
+  annotations:
+    policies.kyverno.io/title: Inject Istio Sidecar Proxy Automatically
+    policies.kyverno.io/category: Service Mesh
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Automatically injects Istio sidecar proxy to pods.
+      Customize Istio version, image, and excluded namespaces via values.yaml
+    customizable: "true"
+    values-path: "policies.mutate.injectIstioSidecar"
+spec:
+  mutationFailureAction: {{ .Values.policies.mutate.injectIstioSidecar.failureAction | default "audit" }}
+  background: {{ .Values.global.background | default true }}
+  rules:
+  - name: inject-istio-proxy
+    match:
+      resources:
+        kinds:
+        - Pod
+      {{- if .Values.policies.mutate.injectIstioSidecar.namespaceSelector }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.mutate.injectIstioSidecar.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+      {{- if .Values.policies.mutate.injectIstioSidecar.excludeNamespaces }}
+      excludeResources:
+        namespaces:
+        {{- range .Values.policies.mutate.injectIstioSidecar.excludeNamespaces }}
+        - {{ . }}
+        {{- end }}
+      {{- end }}
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - name: istio-proxy
+            image: "{{ .Values.policies.mutate.injectIstioSidecar.image.repository }}:{{ .Values.policies.mutate.injectIstioSidecar.image.tag }}"
+            args:
+            - proxy
+            - sidecar
+            - --domain
+            - $(POD_NAMESPACE).svc.cluster.local
+            - --proxyLogLevel=warning
+            - --proxyComponentLogLevel=misc:error
+            env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            volumeMounts:
+            - name: istio-envoy-dir
+              mountPath: /var/run/secrets/istio
+          volumes:
+          - name: istio-envoy-dir
+            emptyDir: {}
+{{- end }}

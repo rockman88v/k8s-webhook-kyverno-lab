@@ -1,0 +1,463 @@
+# Default values for templates-chart
+# All Kyverno policy templates are fully customizable via Helm values
+# Change configurations below and redeploy: helm upgrade kyverno .
+
+#==============================================================================
+# VALIDATE POLICIES - Enforce compliance and security rules
+#==============================================================================
+policies:
+  validate:
+    # Enable/disable all validate policies
+    enabled: true
+
+    # Policy: Disallow running containers as root
+    # Scope: Cluster-wide (namespaceSelector optional)
+    # Description: Prevents containers from running with root privileges
+    disallowRoot:
+      enabled: true
+      failureAction: audit  # audit: log only | enforce: block
+      # Resource kinds this rule matches. Customize to add/remove kinds.
+      resourceKinds:
+        - Pod
+      # Leave namespaceSelector.matchLabels empty ({}) to apply cluster-wide.
+      namespaceSelector:
+        matchLabels: {}
+      # Example to apply only to specific namespaces:
+      # namespaceSelector:
+      #   matchLabels:
+      #     enforce-security: "true"
+
+    # Policy: Require image digest (not tags)
+    # Scope: Can be cluster-wide or namespace-specific
+    # Description: Forces images to use digest instead of tags for reproducibility
+    requireImageDigest:
+      enabled: true
+      failureAction: audit
+      # Resource kinds this rule matches. Add/remove as needed.
+      resourceKinds:
+        - Pod
+        - Deployment
+        - StatefulSet
+        - DaemonSet
+      namespaceSelector:
+        matchLabels:
+          require-image-digest: "true"
+      # Add more namespaces here
+      # Example: prod, staging environments
+
+    # Policy: Enforce resource requests and limits
+    # Scope: Namespace-specific
+    # Description: Ensures all containers specify CPU and memory limits
+    enforceResources:
+      enabled: true
+      failureAction: audit
+      # Resource kinds this rule matches. Add/remove as needed.
+      resourceKinds:
+        - Pod
+        - Deployment
+        - StatefulSet
+        - DaemonSet
+      namespaceSelector:
+        matchLabels:
+          require-resources: "true"
+
+    # Policy: Restrict image registries
+    # Scope: Cluster-wide
+    # Description: Only allows images from approved registries
+    restrictRegistries:
+      enabled: true
+      failureAction: enforce
+      # Resource kinds this rule matches. Add/remove as needed.
+      resourceKinds:
+        - Pod
+        - Deployment
+        - StatefulSet
+        - DaemonSet
+        - Job
+        - CronJob
+      approvedRegistries:
+        - "gcr.io"
+        - "docker.io"
+        - "quay.io"
+      # Leave namespaceSelector.matchLabels empty ({}) to apply cluster-wide.
+      namespaceSelector:
+        matchLabels: {}
+
+    # Policy: Require labels on pods
+    # Scope: Cluster-wide
+    # Description: All pods must have mandatory labels
+    requireLabels:
+      enabled: true
+      failureAction: audit
+      # Resource kinds this rule matches. Add/remove as needed.
+      resourceKinds:
+        - Pod
+      requiredLabels:
+        - app
+        - version
+        - managed-by
+      # Leave namespaceSelector.matchLabels empty ({}) to apply cluster-wide.
+      namespaceSelector:
+        matchLabels: {}
+
+
+  #==============================================================================
+  # MUTATE POLICIES - Automatically fix and standardize configurations
+  #==============================================================================
+  mutate:
+    # Enable/disable all mutate policies
+    enabled: true
+
+    # Policy: Add default labels to all pods
+    # Scope: Cluster-wide (with namespace selector)
+    # Description: Automatically adds standard labels for tracking and management
+    addDefaultLabels:
+      enabled: true
+      failureAction: audit  # audit: log if fails | enforce: block if fails
+      # Namespaces where this policy applies (label-based)
+      namespaceSelector:
+        matchLabels:
+          auto-label: "true"
+      # Labels to add (customize these for your organization)
+      labels:
+        managed-by: "kyverno"
+        environment: "{{ request.namespace }}"  # Dynamic namespace variable
+        created-by: "{{ serviceAccountName }}"  # Dynamic service account
+      # Optional: Additional static labels
+      # You can add your own labels here
+      additionalLabels: {}
+        # example-label: "example-value"
+        # team: "platform"
+
+    # Policy: Add restrictive security context
+    # Scope: Namespace-specific
+    # Description: Hardens containers by enforcing security constraints
+    addSecurityContext:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          auto-sec-context: "true"
+      # Security context settings
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      # Exclude specific containers (e.g., sidecars that need special privileges)
+      excludeContainers: []
+        # - sidecar-name
+        # - init-container-name
+
+    # Policy: Inject Istio sidecar proxy
+    # Scope: Namespace-specific
+    # Description: Auto-injects service mesh sidecar for traffic management
+    injectIstioSidecar:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          istio-injection: "enabled"
+      # Istio proxy image and version
+      image:
+        repository: "istio/proxyv2"
+        tag: "1.17.0"
+      # Exclude namespaces from sidecar injection
+      excludeNamespaces:
+        - kyverno
+        - kube-system
+        - istio-system
+      # Exclude specific pods by label
+      excludePodSelector: {}
+        # matchLabels:
+        #   skip-istio-injection: "true"
+
+    # Policy: Add default resource requests and limits
+    # Scope: Namespace-specific
+    # Description: Ensures predictable scheduling by adding default resources
+    addDefaultResources:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          auto-add-requests: "true"
+      # Default resource values (customize for your environment)
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+      # Different defaults for different namespace types
+      namespaceDefaults:
+        dev:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+        prod:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1Gi"
+
+    # Policy: Add Prometheus monitoring annotations
+    # Scope: Namespace-specific
+    # Description: Enables automatic metrics collection for Prometheus
+    addMonitoringAnnotations:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          prometheus-monitoring: "enabled"
+      # Prometheus scrape settings
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+        prometheus.io/scheme: "http"
+      # Override defaults per namespace
+      customPorts: {}
+        # myapp: "9090"
+        # another-app: "5000"
+
+    # Policy: Add pod priority class
+    # Scope: Namespace-specific
+    # Description: Ensures critical pods aren't evicted when resources are low
+    addPodPriority:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          add-priority: "true"
+      # Default priority class
+      priorityClassName: "default-priority"
+      # Pods with specific labels get high priority
+      criticalPriorityLabel:
+        key: "priority"
+        value: "critical"
+      criticalPriorityClass: "critical-pods"
+
+    # Policy: Add init container for dependency check
+    # Scope: Namespace-specific
+    # Description: Waits for dependencies (database, cache) before starting
+    addInitContainer:
+      enabled: false  # Disabled by default as it's context-specific
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          wait-for-db: "true"
+      # Init container configuration
+      initContainer:
+        name: "wait-for-db"
+        image: "busybox:1.35"
+        command: 
+          - "sh"
+          - "-c"
+          - "until nc -z db 5432; do echo waiting for db; sleep 2; done;"
+      # Customize wait target (database host and port)
+      # You can override in values-custom.yaml
+      dbHost: "db"
+      dbPort: "5432"
+
+    # Policy: Add registry credentials
+    # Scope: Namespace-specific
+    # Description: Injects imagePullSecrets for private registry access
+    addRegistryCredentials:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          use-private-registry: "true"
+      # Name of the secret with registry credentials
+      secretName: "docker-registry-credentials"
+      # Pods with specific labels get the credentials
+      # Leave empty to apply to all pods
+      podSelectorLabel: {}
+        # matchLabels:
+        #   pull-from-private: "true"
+
+  #==============================================================================
+  # GENERATE POLICIES - Automatically create resources on triggers
+  #==============================================================================
+  generate:
+    # Enable/disable all generate policies
+    enabled: true
+
+    # Policy: Auto-create NetworkPolicy for new namespaces
+    # Scope: Cluster-wide (triggered on namespace creation)
+    # Description: Creates default-deny network policy for isolation
+    generateNetworkPolicy:
+      enabled: true
+      # Resource kinds that trigger generation. Keep Namespace for namespace creation.
+      resourceKinds:
+        - Namespace
+      # Only create NetworkPolicy for namespaces with this label
+      namespaceSelector:
+        matchLabels:
+          network-policy: "enabled"
+      # NetworkPolicy configuration
+      policyName: "default-deny-ingress"
+      podSelector: {}
+      policyTypes:
+        - Ingress
+      # Whitelist rules (optional, add if needed)
+      allowedPorts: []
+        # - port: 8080
+        #   protocol: TCP
+        # - port: 443
+        #   protocol: TCP
+
+    # Policy: Clone registry secrets to new namespaces
+    # Scope: Cluster-wide (triggered on namespace creation)
+    # Description: Distributes docker credentials to all namespaces
+    cloneRegistrySecrets:
+      enabled: true
+      # Resource kinds that trigger generation. Keep Namespace for namespace creation.
+      resourceKinds:
+        - Namespace
+      # Only clone to namespaces matching these labels.
+      namespaceSelector:
+        matchLabels:
+          clone-secrets: "true"
+      # Source namespace where secrets are stored
+      sourceNamespace: "default"
+      # Name of the secret to clone
+      secretName: "docker-registry-credentials"
+      # Target secret name in destination namespace (usually same)
+      targetSecretName: "docker-registry-credentials"
+
+    # Policy: Auto-create ResourceQuota for new namespaces
+    # Scope: Cluster-wide (triggered on namespace creation)
+    # Description: Limits total resources per namespace
+    generateResourceQuota:
+      enabled: true
+      # Resource kinds that trigger generation. Keep Namespace for namespace creation.
+      resourceKinds:
+        - Namespace
+      # A rule is created for every item below. The defaults preserve the original
+      # development and production quota behavior.
+      quotas:
+        dev:
+          ruleName: "create-dev-quota"
+          namespaceSelector:
+            matchLabels:
+              env: "development"
+          quotaName: "dev-quota"
+          hard:
+            requests.cpu: "5"
+            requests.memory: "10Gi"
+            limits.cpu: "10"
+            limits.memory: "20Gi"
+            pods: "100"
+            services.loadbalancers: "2"
+            services.nodeports: "5"
+        prod:
+          ruleName: "create-prod-quota"
+          namespaceSelector:
+            matchLabels:
+              env: "production"
+          quotaName: "prod-quota"
+          hard:
+            requests.cpu: "100"
+            requests.memory: "200Gi"
+            limits.cpu: "200"
+            limits.memory: "400Gi"
+            pods: "500"
+
+    # Policy: Auto-create LimitRange for new namespaces
+    # Scope: Cluster-wide (triggered on namespace creation)
+    # Description: Sets default resource limits for containers
+    generateLimitRange:
+      enabled: true
+      # Resource kinds that trigger generation. Keep Namespace for namespace creation.
+      resourceKinds:
+        - Namespace
+      # Leave matchLabels empty ({}) to apply to every newly created namespace.
+      namespaceSelector:
+        matchLabels: {}
+      limitRangeName: "default-limits"
+      # Container-level defaults
+      containerLimits:
+        max:
+          cpu: "2"
+          memory: "2Gi"
+        min:
+          cpu: "50m"
+          memory: "64Mi"
+        default:
+          cpu: "500m"
+          memory: "512Mi"
+        defaultRequest:
+          cpu: "100m"
+          memory: "128Mi"
+        ratio:
+          limits/requests: "4"
+      # Pod-level limits
+      podLimits:
+        max:
+          cpu: "4"
+          memory: "4Gi"
+        min:
+          cpu: "100m"
+          memory: "128Mi"
+
+    # Policy: Clone a named secret when a namespace is created
+    # Scope: Cluster-wide (triggered on namespace creation)
+    cloneSecretOnNamespaceCreation:
+      enabled: true
+      resourceKinds:
+        - Namespace
+      # Leave matchLabels empty ({}) to apply to every newly created namespace.
+      namespaceSelector:
+        matchLabels: {}
+      sourceNamespace: "default"
+      sourceSecretName: "registry-credentials"
+      targetSecretName: "registry-credentials"
+
+    # Policy: Generate a default ingress-deny NetworkPolicy
+    # Scope: Cluster-wide (triggered on namespace creation)
+    defaultNetworkPolicy:
+      enabled: true
+      resourceKinds:
+        - Namespace
+      # This default preserves the existing selector semantics.
+      namespaceSelector:
+        matchExpressions:
+          - key: "network-policy"
+            operator: In
+            values:
+              - "default"
+      policyName: "default-deny-ingress"
+      podSelector: {}
+      policyTypes:
+        - Ingress
+
+#==============================================================================
+# GLOBAL SETTINGS
+#==============================================================================
+global:
+  # Global failure action for all policies
+  # Override per-policy settings
+  defaultFailureAction: "audit"  # audit | enforce
+  
+  # Global namespace exclusions (apply to all policies)
+  excludeNamespaces:
+    - kube-system
+    - kube-public
+    - kyverno
+    - default
+  
+  # Enable background processing (applies policies to existing resources)
+  background: true
+  
+  # Validation failure action for ClusterPolicies
+  validationFailureAction: "audit"

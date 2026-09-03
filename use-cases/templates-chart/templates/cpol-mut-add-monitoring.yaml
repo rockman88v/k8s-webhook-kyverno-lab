@@ -1,0 +1,38 @@
+{{- if and .Values.policies.mutate.enabled .Values.policies.mutate.addMonitoringAnnotations.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-monitoring-annotations
+  annotations:
+    policies.kyverno.io/title: Add Prometheus Monitoring Annotations
+    policies.kyverno.io/category: Monitoring
+    policies.kyverno.io/severity: low
+    policies.kyverno.io/description: >-
+      Automatically adds Prometheus scrape annotations to pods.
+      Customize scrape settings, ports, and paths via values.yaml
+    customizable: "true"
+    values-path: "policies.mutate.addMonitoringAnnotations"
+spec:
+  mutationFailureAction: {{ .Values.policies.mutate.addMonitoringAnnotations.failureAction | default "audit" }}
+  background: {{ .Values.global.background | default true }}
+  rules:
+  - name: add-prometheus-annotations
+    match:
+      resources:
+        kinds:
+        - Pod
+      {{- if .Values.policies.mutate.addMonitoringAnnotations.namespaceSelector }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.mutate.addMonitoringAnnotations.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    mutate:
+      patchStrategicMerge:
+        metadata:
+          annotations:
+            {{- range $key, $value := .Values.policies.mutate.addMonitoringAnnotations.annotations }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+{{- end }}

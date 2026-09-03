@@ -1,0 +1,40 @@
+{{- if and .Values.policies.validate.enabled .Values.policies.validate.disallowRoot.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-root-user
+  annotations:
+    policies.kyverno.io/title: Disallow Running as Root
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Running containers as root is not allowed. Containers must run with a non-zero user ID.
+      Customizable via values.yaml - modify resource kinds and namespace selector.
+    customizable: "true"
+    values-path: "policies.validate.disallowRoot"
+spec:
+  validationFailureAction: {{ .Values.policies.validate.disallowRoot.failureAction | default "audit" }}
+  rules:
+  - name: check-runAsNonRoot
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.validate.disallowRoot.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.validate.disallowRoot.namespaceSelector.matchLabels }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.validate.disallowRoot.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    validate:
+      message: "Running as root user is not allowed"
+      pattern:
+        spec:
+          containers:
+          - securityContext:
+              runAsNonRoot: true
+{{- end }}
+

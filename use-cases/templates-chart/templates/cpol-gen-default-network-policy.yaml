@@ -1,0 +1,63 @@
+{{- if and .Values.policies.generate.enabled .Values.policies.generate.defaultNetworkPolicy.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: default-network-policy
+  annotations:
+    policies.kyverno.io/title: Create Default NetworkPolicy
+    policies.kyverno.io/category: Network Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      This policy generates a default NetworkPolicy in new namespaces.
+      Customizable via values.yaml - modify resource kinds, selector, and NetworkPolicy settings.
+    customizable: "true"
+    values-path: "policies.generate.defaultNetworkPolicy"
+spec:
+  rules:
+  - name: generate-networkpolicy
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.generate.defaultNetworkPolicy.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if or .Values.policies.generate.defaultNetworkPolicy.namespaceSelector.matchLabels .Values.policies.generate.defaultNetworkPolicy.namespaceSelector.matchExpressions }}
+        selector:
+          {{- if .Values.policies.generate.defaultNetworkPolicy.namespaceSelector.matchLabels }}
+          matchLabels:
+            {{- range $key, $value := .Values.policies.generate.defaultNetworkPolicy.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+          {{- end }}
+          {{- if .Values.policies.generate.defaultNetworkPolicy.namespaceSelector.matchExpressions }}
+        matchExpressions:
+          {{- range .Values.policies.generate.defaultNetworkPolicy.namespaceSelector.matchExpressions }}
+          - key: {{ .key }}
+            operator: {{ .operator }}
+            {{- if .values }}
+            values:
+              {{- range .values }}
+              - "{{ . }}"
+              {{- end }}
+            {{- end }}
+          {{- end }}
+          {{- end }}
+      {{- end }}
+    generate:
+      kind: NetworkPolicy
+      name: {{ .Values.policies.generate.defaultNetworkPolicy.policyName }}
+      namespace: "{{ "{{ request.object.metadata.name }}" }}"
+      data:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: {{ .Values.policies.generate.defaultNetworkPolicy.policyName }}
+          namespace: "{{ "{{ request.object.metadata.name }}" }}"
+        spec:
+          podSelector:
+            {{- toYaml .Values.policies.generate.defaultNetworkPolicy.podSelector | nindent 12 }}
+          policyTypes:
+            {{- range .Values.policies.generate.defaultNetworkPolicy.policyTypes }}
+            - {{ . }}
+            {{- end }}
+{{- end }}

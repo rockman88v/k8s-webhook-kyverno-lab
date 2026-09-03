@@ -1,0 +1,34 @@
+{{- if and .Values.policies.mutate.enabled .Values.policies.mutate.addDefaultResources.enabled }}
+# NOTE: This policy is combined with cpol-mut-add-default-resources.yaml
+# Use addDefaultResources in values.yaml to configure resource settings
+# Both CPU and memory are configured in one place for consistency
+{{- else }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: set-memory-requests
+  annotations:
+    policies.kyverno.io/title: Set Memory Requests (DEPRECATED - Use addDefaultResources)
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      DEPRECATED - Use addDefaultResources policy instead.
+      This policy mutates containers to set default memory requests if not specified.
+spec:
+  mutationFailureAction: audit
+  background: true
+  rules:
+  - name: set-memory-request
+    match:
+      resources:
+        kinds:
+        - Pod
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - (name): "*"
+            resources:
+              requests:
+                memory: "128Mi"
+{{- end }}

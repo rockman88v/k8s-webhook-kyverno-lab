@@ -1,0 +1,42 @@
+{{- if and .Values.policies.validate.enabled .Values.policies.validate.requireLabels.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Labels
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy requires that the labels configured in values.yaml
+      (policies.validate.requireLabels.requiredLabels) are present on resources.
+      Customizable via values.yaml - modify required labels, resource kinds, and namespace selector.
+    customizable: "true"
+    values-path: "policies.validate.requireLabels"
+spec:
+  validationFailureAction: {{ .Values.policies.validate.requireLabels.failureAction | default "audit" }}
+  rules:
+  - name: check-required-labels
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.validate.requireLabels.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.validate.requireLabels.namespaceSelector.matchLabels }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.validate.requireLabels.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    validate:
+      message: "Labels {{ range $i, $l := .Values.policies.validate.requireLabels.requiredLabels }}{{ if $i }}, {{ end }}'{{ $l }}'{{ end }} are required"
+      pattern:
+        metadata:
+          labels:
+            {{- range .Values.policies.validate.requireLabels.requiredLabels }}
+            {{ . }}: "?*"
+            {{- end }}
+{{- end }}
+

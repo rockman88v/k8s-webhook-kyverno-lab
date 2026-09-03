@@ -1,0 +1,63 @@
+{{- if and .Values.policies.generate.enabled .Values.policies.generate.generateLimitRange.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-limit-ranges
+  annotations:
+    policies.kyverno.io/title: Generate LimitRange
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Automatically create LimitRange in new namespaces to define
+      default resource requests/limits for containers and pods.
+      Customizable via values.yaml - modify resource kinds, namespace selector, and limits.
+    customizable: "true"
+    values-path: "policies.generate.generateLimitRange"
+spec:
+  rules:
+  - name: create-limit-range
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.generate.generateLimitRange.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.generate.generateLimitRange.namespaceSelector.matchLabels }}
+        selector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.generate.generateLimitRange.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+      {{- end }}
+    generate:
+      kind: LimitRange
+      name: {{ .Values.policies.generate.generateLimitRange.limitRangeName }}
+      namespace: "{{ "{{ request.object.metadata.name }}" }}"
+      data:
+        apiVersion: v1
+        kind: LimitRange
+        metadata:
+          name: {{ .Values.policies.generate.generateLimitRange.limitRangeName }}
+          namespace: "{{ "{{ request.object.metadata.name }}" }}"
+        spec:
+          limits:
+          # Container-level defaults
+          - type: Container
+            max:
+              {{- toYaml .Values.policies.generate.generateLimitRange.containerLimits.max | nindent 14 }}
+            min:
+              {{- toYaml .Values.policies.generate.generateLimitRange.containerLimits.min | nindent 14 }}
+            default:
+              {{- toYaml .Values.policies.generate.generateLimitRange.containerLimits.default | nindent 14 }}
+            defaultRequest:
+              {{- toYaml .Values.policies.generate.generateLimitRange.containerLimits.defaultRequest | nindent 14 }}
+            ratio:
+              {{- toYaml .Values.policies.generate.generateLimitRange.containerLimits.ratio | nindent 14 }}
+          
+          # Pod-level limits
+          - type: Pod
+            max:
+              {{- toYaml .Values.policies.generate.generateLimitRange.podLimits.max | nindent 14 }}
+            min:
+              {{- toYaml .Values.policies.generate.generateLimitRange.podLimits.min | nindent 14 }}
+{{- end }}

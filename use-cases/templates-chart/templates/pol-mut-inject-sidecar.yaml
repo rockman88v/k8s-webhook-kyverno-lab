@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: Policy
+metadata:
+  name: inject-sidecar
+  namespace: default
+  annotations:
+    policies.kyverno.io/title: Inject Sidecar
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      This policy mutates pods to inject a sidecar container.
+spec:
+  mutationFailureAction: audit
+  rules:
+  - name: inject-sidecar
+    match:
+      resources:
+        kinds:
+        - Pod
+      namespaceSelector:
+        matchLabels:
+          inject-sidecar: "true"
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - name: sidecar
+            image: "sidecar:latest"
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "50m"

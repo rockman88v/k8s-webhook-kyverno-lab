@@ -1,0 +1,40 @@
+{{- if and .Values.policies.validate.enabled .Values.policies.validate.requireImageDigest.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-image-digest
+  annotations:
+    policies.kyverno.io/title: Require Image Digest
+    policies.kyverno.io/category: Image Registry
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Images must be referenced by digest (sha256:xxxx) instead of tag
+      to ensure reproducibility and prevent tag mutation attacks.
+      Customizable via values.yaml - modify resource kinds and namespace selector.
+    customizable: "true"
+    values-path: "policies.validate.requireImageDigest"
+spec:
+  validationFailureAction: {{ .Values.policies.validate.requireImageDigest.failureAction | default "audit" }}  # Change to 'enforce' for production
+  rules:
+  - name: validate-image-digest
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.validate.requireImageDigest.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.validate.requireImageDigest.namespaceSelector.matchLabels }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.validate.requireImageDigest.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+    validate:
+      message: "Image must use digest format (sha256:...) not tags like 'latest' or 'v1.0'"
+      pattern:
+        spec:
+          containers:
+          - image: "*/*/sha256:*"
+{{- end }}
+

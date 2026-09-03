@@ -1,0 +1,52 @@
+{{- if and .Values.policies.mutate.enabled .Values.policies.mutate.addSecurityContext.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-security-context
+  annotations:
+    policies.kyverno.io/title: Add Restrictive Security Context
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Automatically injects restrictive security context to all containers.
+      Customize security settings and excluded containers via values.yaml
+    customizable: "true"
+    values-path: "policies.mutate.addSecurityContext"
+spec:
+  mutationFailureAction: {{ .Values.policies.mutate.addSecurityContext.failureAction | default "audit" }}
+  background: {{ .Values.global.background | default true }}
+  rules:
+  - name: add-security-context
+    match:
+      resources:
+        kinds:
+        - Pod
+      {{- if .Values.policies.mutate.addSecurityContext.namespaceSelector }}
+      namespaceSelector:
+        matchLabels:
+          {{- range $key, $value := .Values.policies.mutate.addSecurityContext.namespaceSelector.matchLabels }}
+          {{ $key }}: "{{ $value }}"
+          {{- end }}
+      {{- end }}
+      {{- if .Values.policies.mutate.addSecurityContext.excludeContainers }}
+      excludeResources:
+        {{- range .Values.policies.mutate.addSecurityContext.excludeContainers }}
+        - name: "{{ . }}"
+        {{- end }}
+      {{- end }}
+    mutate:
+      patchStrategicMerge:
+        spec:
+          containers:
+          - (name): "*"
+            securityContext:
+              runAsNonRoot: {{ .Values.policies.mutate.addSecurityContext.securityContext.runAsNonRoot }}
+              runAsUser: {{ .Values.policies.mutate.addSecurityContext.securityContext.runAsUser }}
+              readOnlyRootFilesystem: {{ .Values.policies.mutate.addSecurityContext.securityContext.readOnlyRootFilesystem }}
+              allowPrivilegeEscalation: {{ .Values.policies.mutate.addSecurityContext.securityContext.allowPrivilegeEscalation }}
+              capabilities:
+                drop:
+                {{- range .Values.policies.mutate.addSecurityContext.securityContext.capabilities.drop }}
+                - {{ . }}
+                {{- end }}
+{{- end }}

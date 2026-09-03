@@ -1,0 +1,8 @@
+1. Deploy the policies:
+  helm install kyverno-policies . -n kyverno --create-namespace
+
+2. Verify policies are applied:
+  kubectl get cpol,pol -n kyverno
+
+3. Test policy enforcement:
+  kubectl apply -f test-resources.yaml

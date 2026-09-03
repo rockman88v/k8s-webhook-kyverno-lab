@@ -1,0 +1,59 @@
+{{- if and .Values.policies.generate.enabled .Values.policies.generate.generateNetworkPolicy.enabled }}
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: generate-network-policies
+  annotations:
+    policies.kyverno.io/title: Generate Default NetworkPolicy
+    policies.kyverno.io/category: Network Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >-
+      Automatically create a default-deny NetworkPolicy when a new namespace is created.
+      This ensures network isolation by default (whitelist approach).
+      Customizable via values.yaml - modify resource kinds, namespace selector, and NetworkPolicy settings.
+    customizable: "true"
+    values-path: "policies.generate.generateNetworkPolicy"
+spec:
+  rules:
+  - name: create-default-deny-ingress
+    match:
+      resources:
+        kinds:
+          {{- range .Values.policies.generate.generateNetworkPolicy.resourceKinds }}
+          - {{ . }}
+          {{- end }}
+      {{- if .Values.policies.generate.generateNetworkPolicy.namespaceSelector.matchLabels }}
+        selector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.generate.generateNetworkPolicy.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+      {{- end }}
+    generate:
+      kind: NetworkPolicy
+      name: {{ .Values.policies.generate.generateNetworkPolicy.policyName }}
+      namespace: "{{ "{{ request.object.metadata.name }}" }}"
+      data:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        metadata:
+          name: {{ .Values.policies.generate.generateNetworkPolicy.policyName }}
+          namespace: "{{ "{{ request.object.metadata.name }}" }}"
+        spec:
+          podSelector:
+            {{- toYaml .Values.policies.generate.generateNetworkPolicy.podSelector | nindent 12 }}
+          policyTypes:
+            {{- range .Values.policies.generate.generateNetworkPolicy.policyTypes }}
+            - {{ . }}
+            {{- end }}
+          {{- if .Values.policies.generate.generateNetworkPolicy.allowedPorts }}
+          ingress:
+          - ports:
+              {{- range .Values.policies.generate.generateNetworkPolicy.allowedPorts }}
+              - port: {{ .port }}
+                protocol: {{ .protocol | default "TCP" }}
+              {{- end }}
+          {{- end }}
+          # This policy denies all ingress traffic by default
+          # Other policies can then whitelist specific traffic
+{{- end }}
