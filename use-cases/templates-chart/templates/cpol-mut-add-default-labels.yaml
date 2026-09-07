@@ -33,7 +33,7 @@ spec:
         metadata:
           labels:
             {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.labels }}
-            {{ $key }}: "{{ tpl $value . }}"
+            {{ $key }}: "{{ $value }}"
             {{- end }}
             {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.additionalLabels }}
             {{ $key }}: "{{ $value }}"

@@ -1,0 +1,77 @@
+policies:
+  validate:
+    enabled: false
+  mutate:
+    enabled: false
+  generate:
+    enabled: true
+    generateNetworkPolicy:
+      enabled: true
+      resourceKinds: [Namespace]
+      namespaceSelector:
+        matchLabels:
+          network-policy: "enabled"
+      policyName: default-deny-ingress
+      podSelector: {}
+      policyTypes: [Ingress]
+      allowedPorts: []
+    cloneRegistrySecrets:
+      enabled: true
+      resourceKinds: [Namespace]
+      namespaceSelector:
+        matchLabels:
+          clone-secrets: "true"
+      sourceNamespace: default
+      secretName: docker-credentials
+      targetSecretName: docker-credentials
+    generateResourceQuota:
+      enabled: true
+      resourceKinds: [Namespace]
+      quotas:
+        dev:
+          ruleName: create-dev-quota
+          namespaceSelector:
+            matchLabels:
+              env: development
+          quotaName: dev-quota
+          hard:
+            requests.cpu: "5"
+            requests.memory: 10Gi
+            limits.cpu: "10"
+            limits.memory: 20Gi
+            pods: "100"
+            services.loadbalancers: "2"
+            services.nodeports: "5"
+        prod:
+          ruleName: create-prod-quota
+          namespaceSelector:
+            matchLabels:
+              env: production
+          quotaName: prod-quota
+          hard:
+            requests.cpu: "100"
+            requests.memory: 200Gi
+            limits.cpu: "200"
+            limits.memory: 400Gi
+            pods: "500"
+    generateLimitRange:
+      enabled: true
+      resourceKinds: [Namespace]
+      namespaceSelector:
+        matchLabels: {}
+      limitRangeName: default-limits
+      containerLimits:
+        max: {cpu: "2", memory: 2Gi}
+        min: {cpu: 50m, memory: 64Mi}
+        default: {cpu: 500m, memory: 512Mi}
+        defaultRequest: {cpu: 100m, memory: 128Mi}
+        ratio: {limits/requests: "4"}
+      podLimits:
+        max: {cpu: "4", memory: 4Gi}
+        min: {cpu: 100m, memory: 128Mi}
+    cloneSecretOnNamespaceCreation:
+      enabled: false
+    defaultNetworkPolicy:
+      enabled: false
+global:
+  background: true

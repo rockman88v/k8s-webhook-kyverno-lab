@@ -2,7 +2,7 @@
 # NOTE: This policy is combined with cpol-mut-add-default-resources.yaml
 # Use addDefaultResources in values.yaml to configure resource settings
 # Both CPU and memory are configured in one place for consistency
-{{- else }}
+{{- else if .Values.policies.mutate.enabled }}
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:

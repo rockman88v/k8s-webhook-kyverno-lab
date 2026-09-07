@@ -1,0 +1,35 @@
+policies:
+  validate:
+    enabled: true
+    disallowRoot:
+      enabled: true
+      failureAction: audit
+      resourceKinds: [Pod]
+      namespaceSelector:
+        matchLabels:
+          require-resources: "true"
+    enforceResources:
+      enabled: true
+      failureAction: audit
+      resourceKinds: [Pod]
+      namespaceSelector:
+        matchLabels:
+          require-resources: "true"
+    restrictRegistries:
+      enabled: true
+      failureAction: enforce
+      resourceKinds: [Pod]
+      approvedRegistries: [gcr.io, docker.io, quay.io]
+      namespaceSelector:
+        matchLabels:
+          restrict-registries: "true"
+    requireImageDigest:
+      enabled: false
+    requireLabels:
+      enabled: false
+  mutate:
+    enabled: false
+  generate:
+    enabled: false
+global:
+  background: true

@@ -122,7 +122,7 @@ policies:
       labels:
         managed-by: "kyverno"
         environment: "{{ request.namespace }}"  # Dynamic namespace variable
-        created-by: "{{ serviceAccountName }}"  # Dynamic service account
+        created-by: "{{ request.object.spec.serviceAccountName }}"  # Dynamic service account
       # Optional: Additional static labels
       # You can add your own labels here
       additionalLabels: {}

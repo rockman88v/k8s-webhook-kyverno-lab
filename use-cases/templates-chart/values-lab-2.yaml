@@ -1,0 +1,64 @@
+policies:
+  validate:
+    enabled: false
+  mutate:
+    enabled: true
+    addDefaultLabels:
+      enabled: false
+    addSecurityContext:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          auto-sec-context: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
+    addDefaultResources:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          auto-add-requests: "true"
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
+    addMonitoringAnnotations:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          prometheus-monitoring: "enabled"
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+        prometheus.io/scheme: "http"
+    injectIstioSidecar:
+      enabled: true
+      failureAction: audit
+      namespaceSelector:
+        matchLabels:
+          istio-injection: "enabled"
+      image:
+        repository: istio/proxyv2
+        tag: "1.17.0"
+      excludeNamespaces: [kyverno-system, kube-system, istio-system]
+    addPodPriority:
+      enabled: false
+    addInitContainer:
+      enabled: false
+    addRegistryCredentials:
+      enabled: false
+  generate:
+    enabled: false
+global:
+  background: true
