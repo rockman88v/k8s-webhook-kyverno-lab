@@ -15,7 +15,6 @@ metadata:
       DEPRECATED - Use addDefaultResources policy instead.
       This policy mutates containers to set default memory requests if not specified.
 spec:
-  mutationFailureAction: audit
   background: true
   rules:
   - name: set-memory-request

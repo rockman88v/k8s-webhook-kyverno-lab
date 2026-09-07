@@ -23,13 +23,13 @@ spec:
           {{- range .Values.policies.validate.requireLabels.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.validate.requireLabels.namespaceSelector.matchLabels }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.validate.requireLabels.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.validate.requireLabels.namespaceSelector.matchLabels }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.validate.requireLabels.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     validate:
       message: "Labels {{ range $i, $l := .Values.policies.validate.requireLabels.requiredLabels }}{{ if $i }}, {{ end }}'{{ $l }}'{{ end }} are required"
       pattern:

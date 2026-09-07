@@ -13,7 +13,6 @@ metadata:
     customizable: "true"
     values-path: "policies.mutate.injectIstioSidecar"
 spec:
-  mutationFailureAction: {{ .Values.policies.mutate.injectIstioSidecar.failureAction | default "audit" }}
   background: {{ .Values.global.background | default true }}
   rules:
   - name: inject-istio-proxy
@@ -21,20 +20,21 @@ spec:
       resources:
         kinds:
         - Pod
-      {{- if .Values.policies.mutate.injectIstioSidecar.namespaceSelector }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.mutate.injectIstioSidecar.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
-      {{- if .Values.policies.mutate.injectIstioSidecar.excludeNamespaces }}
-      excludeResources:
-        namespaces:
-        {{- range .Values.policies.mutate.injectIstioSidecar.excludeNamespaces }}
-        - {{ . }}
+        {{- if .Values.policies.mutate.injectIstioSidecar.namespaceSelector }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.mutate.injectIstioSidecar.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
         {{- end }}
-      {{- end }}
+    {{- if .Values.policies.mutate.injectIstioSidecar.excludeNamespaces }}
+    exclude:
+      resources:
+        namespaces:
+          {{- range .Values.policies.mutate.injectIstioSidecar.excludeNamespaces }}
+          - {{ . }}
+          {{- end }}
+    {{- end }}
     mutate:
       patchStrategicMerge:
         spec:
@@ -45,7 +45,7 @@ spec:
             - proxy
             - sidecar
             - --domain
-            - $(POD_NAMESPACE).svc.cluster.local
+            - "{{ "{{ request.namespace }}" }}.svc.cluster.local"
             - --proxyLogLevel=warning
             - --proxyComponentLogLevel=misc:error
             env:

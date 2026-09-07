@@ -13,7 +13,6 @@ metadata:
     customizable: "true"
     values-path: "policies.mutate.addDefaultLabels"
 spec:
-  mutationFailureAction: {{ .Values.policies.mutate.addDefaultLabels.failureAction | default "audit" }}
   background: {{ .Values.global.background | default true }}
   rules:
   - name: add-default-labels
@@ -21,13 +20,13 @@ spec:
       resources:
         kinds:
         - Pod
-      {{- if .Values.policies.mutate.addDefaultLabels.namespaceSelector }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.mutate.addDefaultLabels.namespaceSelector }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     mutate:
       patchStrategicMerge:
         metadata:

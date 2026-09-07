@@ -31,6 +31,7 @@ spec:
             {{- end }}
         {{- end }}
     generate:
+      apiVersion: v1
       kind: ResourceQuota
       name: {{ $quota.quotaName }}
       namespace: "{{ "{{ request.object.metadata.name }}" }}"

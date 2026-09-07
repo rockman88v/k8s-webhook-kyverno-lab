@@ -22,13 +22,13 @@ spec:
           {{- range .Values.policies.validate.disallowRoot.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.validate.disallowRoot.namespaceSelector.matchLabels }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.validate.disallowRoot.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.validate.disallowRoot.namespaceSelector.matchLabels }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.validate.disallowRoot.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     validate:
       message: "Running as root user is not allowed"
       pattern:

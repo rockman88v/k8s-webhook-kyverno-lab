@@ -22,14 +22,15 @@ spec:
           {{- range .Values.policies.generate.generateLimitRange.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.generate.generateLimitRange.namespaceSelector.matchLabels }}
+        {{- if .Values.policies.generate.generateLimitRange.namespaceSelector.matchLabels }}
         selector:
           matchLabels:
             {{- range $key, $value := .Values.policies.generate.generateLimitRange.namespaceSelector.matchLabels }}
             {{ $key }}: "{{ $value }}"
             {{- end }}
-      {{- end }}
+        {{- end }}
     generate:
+      apiVersion: v1
       kind: LimitRange
       name: {{ .Values.policies.generate.generateLimitRange.limitRangeName }}
       namespace: "{{ "{{ request.object.metadata.name }}" }}"

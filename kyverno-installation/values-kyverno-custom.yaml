@@ -1,0 +1,158 @@
+# Custom values for cài đặt Kyverno (chart 3.9.0) — chỉ override những tham số cần tuỳ biến,
+# phần còn lại giữ theo default của chart. Áp dụng bằng:
+#   helm upgrade --install kyverno kyverno-3.9.0.tgz -n kyverno --create-namespace \
+#     -f values-kyverno-custom.yaml
+
+# -- Priority class dùng chung cho mọi component nếu không override riêng ở từng controller bên dưới
+global:
+  priorityClassName: system-cluster-critical
+
+# =============================================================================
+# Admission Controller — nằm trên đường request path (validating/mutating webhook),
+# đây là component QUAN TRỌNG NHẤT cần HA vì nếu down sẽ chặn toàn bộ request tới API server
+# (tuỳ failurePolicy). Nên ưu tiên tách riêng resources/anti-affinity cho controller này.
+# =============================================================================
+admissionController:
+  # -- Số lượng pod, nên >= 3 để chịu được mất 1 node/1 AZ mà vẫn còn quorum phục vụ webhook
+  replicas: 3
+
+  # -- Priority class riêng, override global.priorityClassName nếu cần mức ưu tiên khác
+  priorityClassName: system-cluster-critical
+
+  container:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 384Mi
+        # Không nên set cpu limit để tránh bị throttle gây timeout webhook
+
+  # -- Bật anti-affinity để không schedule quá 1 pod admission-controller lên cùng 1 node
+  antiAffinity:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus-release
+
+  # Có thể thay podAntiAffinity mặc định (preferred) bằng required nếu cluster đủ node,
+  # đảm bảo tuyệt đối không có 2 pod cùng node:
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #     - labelSelector:
+  #         matchExpressions:
+  #           - key: app.kubernetes.io/component
+  #             operator: In
+  #             values:
+  #               - admission-controller
+  #       topologyKey: kubernetes.io/hostname
+
+  # -- Trải pod đều theo zone, cần thiết nếu cluster multi-AZ (bổ sung cho anti-affinity theo node)
+  # topologySpreadConstraints:
+  #   - maxSkew: 1
+  #     topologyKey: topology.kubernetes.io/zone
+  #     whenUnsatisfiable: ScheduleAnyway
+  #     labelSelector:
+  #       matchLabels:
+  #         app.kubernetes.io/component: admission-controller
+
+  # -- PDB đảm bảo không bị gián đoạn quá mức khi node drain/upgrade cluster
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # -- Điều hướng pod vào node riêng (ví dụ node pool dành cho control-plane add-ons)
+  nodeSelector: {}
+  tolerations: []
+
+# =============================================================================
+# Background Controller — xử lý background scan, generate/mutate-existing.
+# Không nằm trên request path nên yêu cầu HA thấp hơn admission-controller.
+# =============================================================================
+backgroundController:
+  replicas: 2
+  priorityClassName: system-cluster-critical
+  container:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 384Mi
+  antiAffinity:
+    enabled: true
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+  serviceMonitor:
+    enabled: true
+    additionalLabels:
+      release: prometheus-release
+
+# =============================================================================
+# Cleanup Controller — xử lý CleanupPolicy (cronjob-like), ít quan trọng nhất về HA.
+# =============================================================================
+cleanupController:
+  replicas: 2
+  priorityClassName: ''
+  container:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 384Mi
+  antiAffinity:
+    enabled: true
+
+# =============================================================================
+# Reports Controller — tổng hợp PolicyReport/ClusterPolicyReport.
+# =============================================================================
+reportsController:
+  replicas: 2
+  priorityClassName: ''
+  container:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        memory: 384Mi
+  antiAffinity:
+    enabled: true
+
+# =============================================================================
+# Các nhóm tham số quan trọng khác nên cân nhắc tuỳ biến thêm (tham khảo values.yaml gốc):
+# =============================================================================
+config:
+  # Loại trừ thêm namespace/user/role khỏi policy engine ngoài danh sách mặc định
+  excludeGroups:
+    - system:nodes
+  excludeUsernames: []
+  resourceFilters: []   # thêm entry nếu cần bỏ qua thêm resource type/namespace
+  webhooks:
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: NotIn
+          values:
+            - kube-system
+            - kyverno
+#
+# admissionController:
+#   # Điều khiển hành vi khi webhook lỗi/timeout: Ignore (fail-open, an toàn khi mới triển khai)
+#   # hay Fail (fail-closed, chặn request nếu Kyverno không phản hồi được — chỉ bật khi đã tin tưởng ổn định)
+#   # Cấu hình qua policy .spec.failurePolicy hoặc config.forceFailurePolicyIgnore ở cấp cluster
+#
+# crds:
+#   install: true   # tắt nếu muốn tự quản lý CRDs qua công cụ khác (argocd/kustomize)
+#
+# reportsServer / openreports:
+#   enabled: false  # bật nếu muốn lưu reports vào backend riêng thay vì etcd
+#
+# admissionController.serviceMonitor / backgroundController.serviceMonitor / ...:
+#   enabled: true   # bật nếu cluster có Prometheus Operator, cần thiết để giám sát Kyverno
+#
+# admissionController.networkPolicy / webhookServer:
+#   enabled: true   # bật NetworkPolicy nếu cluster áp dụng default-deny network policy

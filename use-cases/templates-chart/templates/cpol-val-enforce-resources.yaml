@@ -23,13 +23,13 @@ spec:
           {{- range .Values.policies.validate.enforceResources.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.validate.enforceResources.namespaceSelector.matchLabels }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.validate.enforceResources.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.validate.enforceResources.namespaceSelector.matchLabels }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.validate.enforceResources.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     validate:
       message: "CPU and memory requests/limits are required for all containers"
       pattern:

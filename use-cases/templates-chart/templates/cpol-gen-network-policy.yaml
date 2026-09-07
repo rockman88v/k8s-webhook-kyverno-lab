@@ -22,14 +22,15 @@ spec:
           {{- range .Values.policies.generate.generateNetworkPolicy.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.generate.generateNetworkPolicy.namespaceSelector.matchLabels }}
+        {{- if .Values.policies.generate.generateNetworkPolicy.namespaceSelector.matchLabels }}
         selector:
           matchLabels:
             {{- range $key, $value := .Values.policies.generate.generateNetworkPolicy.namespaceSelector.matchLabels }}
             {{ $key }}: "{{ $value }}"
             {{- end }}
-      {{- end }}
+        {{- end }}
     generate:
+      apiVersion: networking.k8s.io/v1
       kind: NetworkPolicy
       name: {{ .Values.policies.generate.generateNetworkPolicy.policyName }}
       namespace: "{{ "{{ request.object.metadata.name }}" }}"

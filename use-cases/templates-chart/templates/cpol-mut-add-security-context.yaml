@@ -13,7 +13,6 @@ metadata:
     customizable: "true"
     values-path: "policies.mutate.addSecurityContext"
 spec:
-  mutationFailureAction: {{ .Values.policies.mutate.addSecurityContext.failureAction | default "audit" }}
   background: {{ .Values.global.background | default true }}
   rules:
   - name: add-security-context
@@ -21,19 +20,21 @@ spec:
       resources:
         kinds:
         - Pod
-      {{- if .Values.policies.mutate.addSecurityContext.namespaceSelector }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.mutate.addSecurityContext.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
-      {{- if .Values.policies.mutate.addSecurityContext.excludeContainers }}
-      excludeResources:
-        {{- range .Values.policies.mutate.addSecurityContext.excludeContainers }}
-        - name: "{{ . }}"
+        {{- if .Values.policies.mutate.addSecurityContext.namespaceSelector }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.mutate.addSecurityContext.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
         {{- end }}
-      {{- end }}
+    {{- if .Values.policies.mutate.addSecurityContext.excludeContainers }}
+    exclude:
+      resources:
+        names:
+          {{- range .Values.policies.mutate.addSecurityContext.excludeContainers }}
+          - "{{ . }}"
+          {{- end }}
+    {{- end }}
     mutate:
       patchStrategicMerge:
         spec:

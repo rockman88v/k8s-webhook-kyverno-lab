@@ -25,13 +25,13 @@ spec:
           {{- range .Values.policies.validate.restrictRegistries.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.validate.restrictRegistries.namespaceSelector.matchLabels }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.validate.restrictRegistries.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.validate.restrictRegistries.namespaceSelector.matchLabels }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.validate.restrictRegistries.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     validate:
       message: "Image registry is not approved. Allowed: {{ join ", " .Values.policies.validate.restrictRegistries.approvedRegistries }}"
       pattern:

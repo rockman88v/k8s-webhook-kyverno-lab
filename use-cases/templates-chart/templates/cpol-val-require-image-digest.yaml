@@ -23,13 +23,13 @@ spec:
           {{- range .Values.policies.validate.requireImageDigest.resourceKinds }}
           - {{ . }}
           {{- end }}
-      {{- if .Values.policies.validate.requireImageDigest.namespaceSelector.matchLabels }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.validate.requireImageDigest.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.validate.requireImageDigest.namespaceSelector.matchLabels }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.validate.requireImageDigest.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     validate:
       message: "Image must use digest format (sha256:...) not tags like 'latest' or 'v1.0'"
       pattern:

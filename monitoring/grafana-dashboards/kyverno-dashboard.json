@@ -1,0 +1,785 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 10,
+      "panels": [],
+      "title": "Executive KPI / Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 11,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["Value"] } } },
+        { "id": "reduce", "options": { "reducers": ["sum"] } }
+      ],
+      "title": "Total Validation Violations",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 12,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterByValue", "options": { "filters": [ { "fieldName": "policy_validation_mode", "config": { "id": "equal", "options": { "value": "enforce" } } } ], "type": "include", "match": "any" } },
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["Value"] } } },
+        { "id": "reduce", "options": { "reducers": ["sum"] } }
+      ],
+      "title": "Enforce Failures",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 13,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterByValue", "options": { "filters": [ { "fieldName": "policy_validation_mode", "config": { "id": "equal", "options": { "value": "audit" } } } ], "type": "include", "match": "any" } },
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["Value"] } } },
+        { "id": "reduce", "options": { "reducers": ["sum"] } }
+      ],
+      "title": "Audit Failures",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 14,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto"
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterByValue", "options": { "filters": [ { "fieldName": "rule_execution_cause", "config": { "id": "equal", "options": { "value": "admission_request" } } } ], "type": "include", "match": "any" } },
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["Value"] } } },
+        { "id": "reduce", "options": { "reducers": ["sum"] } }
+      ],
+      "title": "Admission Request Failures",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "id": 20,
+      "panels": [],
+      "title": "Violation Trend",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "none",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" }
+          },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 6 },
+      "id": 21,
+      "options": {
+        "legend": { "calcs": ["mean", "max", "sum"], "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\", resource_namespace=~\"$namespace\", policy_name=~\"$policy\", resource_kind=~\"$kind\"}[5m]))",
+          "legendFormat": "Total",
+          "refId": "A"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\", policy_validation_mode=\"enforce\", resource_namespace=~\"$namespace\", policy_name=~\"$policy\", resource_kind=~\"$kind\"}[5m]))",
+          "legendFormat": "Enforce",
+          "refId": "B"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum(increase(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\", policy_validation_mode=\"audit\", resource_namespace=~\"$namespace\", policy_name=~\"$policy\", resource_kind=~\"$kind\"}[5m]))",
+          "legendFormat": "Audit",
+          "refId": "C"
+        }
+      ],
+      "title": "Policy Violations Over Time",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "id": 30,
+      "panels": [],
+      "title": "Top Violated Policies",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 31,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["policy_name", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "policy_name": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Top Violated Policies",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "id": 40,
+      "panels": [],
+      "title": "Namespace Analysis",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 25 },
+      "id": 41,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["resource_namespace", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "resource_namespace": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Violations by Namespace",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 33 },
+      "id": 50,
+      "panels": [],
+      "title": "Resource Analysis",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
+      "id": 51,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["resource_kind", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "resource_kind": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Violations by Resource Kind",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 42 },
+      "id": 60,
+      "panels": [],
+      "title": "Rule Analysis",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 43 },
+      "id": 61,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["policy_name", "rule_name", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "policy_name": { "aggregations": [], "operation": "groupby" }, "rule_name": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "organize", "options": { "renameByName": { "policy_name": "Policy", "rule_name": "Rule" } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Top Violated Rules",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 51 },
+      "id": 70,
+      "panels": [],
+      "title": "Admission Operations",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 52 },
+      "id": 71,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["resource_request_operation", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "resource_request_operation": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Violations by Admission Operation",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 60 },
+      "id": 80,
+      "panels": [],
+      "title": "Execution Cause",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 61 },
+      "id": 81,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["rule_execution_cause", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "rule_execution_cause": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Violations by Execution Cause",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
+      "id": 90,
+      "panels": [],
+      "title": "Policy Mode",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "axisLabel": "Violations", "axisPlacement": "auto", "fillOpacity": 80, "gradientMode": "none", "lineWidth": 1 },
+          "mappings": [],
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 70 },
+      "id": 91,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.7,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": { "mode": "single", "sort": "none" },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "datasource", "uid": "-- Dashboard --" },
+          "panelId": 101,
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        { "id": "filterFieldsByName", "options": { "include": { "names": ["policy_validation_mode", "Value"] } } },
+        { "id": "groupBy", "options": { "fields": { "policy_validation_mode": { "aggregations": [], "operation": "groupby" }, "Value": { "aggregations": ["sum"], "operation": "aggregate" } } } },
+        { "id": "sortBy", "options": { "fields": {}, "sort": [ { "field": "Value (sum)", "desc": true } ] } },
+        { "id": "limit", "options": { "limitField": 10 } }
+      ],
+      "title": "Violations by Policy Validation Mode",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 78 },
+      "id": 100,
+      "panels": [],
+      "title": "Detailed Breakdown",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": {
+            "align": "auto",
+            "cellOptions": { "type": "auto" },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [
+              { "id": "displayName", "value": "Violation Count" },
+              { "id": "custom.width", "value": 140 }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 79 },
+      "id": 101,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "Violation Count" }]
+      },
+      "pluginVersion": "10.4.0",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+          "expr": "sum by (resource_namespace, resource_kind, policy_name, rule_name, resource_request_operation, policy_validation_mode, rule_execution_cause) (increase(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\", resource_namespace=~\"$namespace\", policy_name=~\"$policy\", resource_kind=~\"$kind\"}[$__range]))",
+          "format": "table",
+          "instant": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Violation Breakdown",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "type": "table"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["kyverno", "kubernetes", "policy", "security"],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "hide": 0,
+        "label": "Prometheus",
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\"}, resource_namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Namespace",
+        "multi": true,
+        "name": "namespace",
+        "options": [],
+        "query": {
+          "query": "label_values(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\"}, resource_namespace)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\"}, policy_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Policy",
+        "multi": true,
+        "name": "policy",
+        "options": [],
+        "query": {
+          "query": "label_values(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\"}, policy_name)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+        "definition": "label_values(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\"}, resource_kind)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Resource Kind",
+        "multi": true,
+        "name": "kind",
+        "options": [],
+        "query": {
+          "query": "label_values(kyverno_policy_results_total{rule_type=\"validate\", rule_result=\"fail\"}, resource_kind)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 2,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-24h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Kyverno - Policy Violations & Compliance",
+  "uid": "kyverno-policy-violations",
+  "version": 1,
+  "weekStart": ""
+}

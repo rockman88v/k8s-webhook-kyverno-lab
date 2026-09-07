@@ -13,7 +13,6 @@ metadata:
     customizable: "true"
     values-path: "policies.mutate.addDefaultResources"
 spec:
-  mutationFailureAction: {{ .Values.policies.mutate.addDefaultResources.failureAction | default "audit" }}
   background: {{ .Values.global.background | default true }}
   rules:
   - name: add-default-resources
@@ -21,13 +20,13 @@ spec:
       resources:
         kinds:
         - Pod
-      {{- if .Values.policies.mutate.addDefaultResources.namespaceSelector }}
-      namespaceSelector:
-        matchLabels:
-          {{- range $key, $value := .Values.policies.mutate.addDefaultResources.namespaceSelector.matchLabels }}
-          {{ $key }}: "{{ $value }}"
-          {{- end }}
-      {{- end }}
+        {{- if .Values.policies.mutate.addDefaultResources.namespaceSelector }}
+        namespaceSelector:
+          matchLabels:
+            {{- range $key, $value := .Values.policies.mutate.addDefaultResources.namespaceSelector.matchLabels }}
+            {{ $key }}: "{{ $value }}"
+            {{- end }}
+        {{- end }}
     mutate:
       patchStrategicMerge:
         spec:

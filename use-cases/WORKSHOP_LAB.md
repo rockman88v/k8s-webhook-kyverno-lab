@@ -1,29 +1,27 @@
-# Workshop Kyverno: Phòng thực hành
+# Workshop Kyverno: Phần thực hành
 
 Tài liệu này dùng chart `templates-chart` trong cùng thư mục. Mỗi bài có một file values riêng, chỉ bật các policy cần cho bài đó. Các lệnh `helm template` bên dưới phải được chạy từ thư mục `use-cases`.
 
 ## Chuẩn bị
 
-### Điều kiện tiên quyết
+### Yêu cầu
 
-- Kubernetes 1.16 trở lên
+- Kubernetes 1.34 trở lên
 - `kubectl` đã trỏ tới cluster cần thực hành
 - Helm 3 trở lên
 - Kiến thức cơ bản về manifest Kubernetes và Kyverno
 
 ### Cài Kyverno
 
+Thực hiện cài đặt theo một trong hai cách trong [hướng dẫn cài Kyverno](../kyverno-installation/README.md): dùng Helm repository hoặc chart `kyverno-3.9.0.tgz` đã tải sẵn. Cả hai cách đều cài release `kyverno` vào namespace `kyverno` và dùng `values-kyverno-custom.yaml`.
+
 ```bash
-kubectl create namespace kyverno-system
 kubectl create namespace kyverno-test
 kubectl create namespace dev
 kubectl create namespace prod
 
-helm repo add kyverno https://kyverno.github.io/kyverno/
-helm repo update
-helm install kyverno kyverno/kyverno --namespace kyverno-system
-
-kubectl get pods -n kyverno-system
+helm status kyverno --namespace kyverno
+kubectl get pods -n kyverno
 kubectl get crd | grep kyverno
 ```
 
@@ -37,12 +35,13 @@ Học cách kiểm tra và ngăn cấu hình không phù hợp bằng validation
 
 ### Kịch bản
 
-Trong bài này, namespace có label `require-resources=true` sẽ được kiểm tra container chạy non-root và khai báo resources. Namespace có label `restrict-registries=true` chỉ được dùng image từ `gcr.io`, `docker.io` hoặc `quay.io`.
+Trong bài này, namespace có label `require-resources=true` sẽ được kiểm tra container chạy non-root và khai báo resources (`requests`/`limits`). Namespace có label `restrict-registries=true` chỉ được dùng image từ `gcr.io`, `docker.io` hoặc `quay.io`.
 
 ### Bước 1.1: Tạo label cho namespace
 
 ```bash
 kubectl label namespace kyverno-test require-resources=true restrict-registries=true --overwrite
+
 kubectl label namespace prod require-resources=true restrict-registries=true env=production --overwrite
 ```
 
@@ -57,12 +56,15 @@ Ba file template dưới đây là toàn bộ policy được dùng trong bài n
 - `templates-chart/templates/cpol-val-restrict-registries.yaml`
 
 ```bash
+# generate manifest from helm templates
 helm template workshop-lab ./templates-chart \
   -f ./templates-chart/values-lab-1.yaml \
   --show-only templates/cpol-val-disallow-root-user.yaml \
   --show-only templates/cpol-val-enforce-resources.yaml \
-  --show-only templates/cpol-val-restrict-registries.yaml \
-  | kubectl apply -f -
+  --show-only templates/cpol-val-restrict-registries.yaml > lab1-policy.yaml
+
+# apply the generated manifest file
+kubectl apply -f lab1-policy.yaml
 ```
 
 `failureAction` của ba policy đang là `audit`, `audit`, `enforce` tương ứng. Policy registry sẽ từ chối image không được phép ngay từ đầu.
@@ -75,10 +77,11 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: test-root-pod
+  namespace: kyverno-test
 spec:
   containers:
     - name: app
-      image: nginx:latest
+      image: docker.io/library/nginx:latest
       securityContext:
         runAsNonRoot: false
 EOF
@@ -89,6 +92,7 @@ EOF
 ```bash
 kubectl patch clusterpolicy disallow-root-user \
   --type merge -p '{"spec":{"validationFailureAction":"enforce"}}'
+
 kubectl delete pod test-root-pod -n kyverno-test --ignore-not-found
 ```
 
@@ -103,7 +107,8 @@ metadata:
 spec:
   containers:
     - name: app
-      image: nginx:latest
+      image: docker.io/library/busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
@@ -116,6 +121,8 @@ spec:
           memory: 128Mi
 EOF
 ```
+
+Pod mẫu sử dụng BusyBox vì chạy ổn định với UID `1000`. Không dùng `nginx:latest` cho bước này: image NGINX mặc định cần ghi vào `/var/cache/nginx` khi khởi động và sẽ `CrashLoopBackOff` khi chạy non-root nếu không có volume ghi được cùng cấu hình NGINX phù hợp.
 
 ### Bước 1.5: Kiểm tra registry không được phép
 
@@ -145,7 +152,7 @@ metadata:
 spec:
   containers:
     - name: app
-      image: nginx:latest
+      image: docker.io/library/nginx:latest
 EOF
 ```
 
@@ -156,7 +163,7 @@ Trong `audit`, pod được tạo và vi phạm được ghi nhận; khi chuyể
 ```bash
 kubectl get policyreport -A
 kubectl describe policyreport -n kyverno-test
-kubectl logs -n kyverno-system -l app.kubernetes.io/name=kyverno --tail=100
+kubectl logs -n kyverno -l app.kubernetes.io/name=kyverno --tail=100
 ```
 
 Kyverno tự tạo `PolicyReport`; không cần thêm manifest PolicyReport trong chart.
@@ -168,8 +175,8 @@ kubectl delete pod test-root-pod test-compliant-pod test-untrusted-registry test
   -n kyverno-test --ignore-not-found
 kubectl delete clusterpolicy disallow-root-user enforce-resource-quotas restrict-untrusted-registries \
   --ignore-not-found
-kubectl label namespace kyverno-test require-resources- restrict-registries- --ignore-not-found
-kubectl label namespace prod require-resources- restrict-registries- --ignore-not-found
+kubectl label namespace kyverno-test require-resources- restrict-registries- 
+kubectl label namespace prod require-resources- restrict-registries-
 ```
 
 ## Lab 2: Policy MUTATE
@@ -194,13 +201,16 @@ Các selector này khớp với `templates-chart/values-lab-2.yaml`.
 ### Bước 2.2: Render và apply đúng các policy của Lab 2
 
 ```bash
+# Generate manifest from templates
 helm template workshop-lab ./templates-chart \
   -f ./templates-chart/values-lab-2.yaml \
   --show-only templates/cpol-mut-add-security-context.yaml \
   --show-only templates/cpol-mut-add-default-resources.yaml \
   --show-only templates/cpol-mut-add-monitoring.yaml \
-  --show-only templates/cpol-mut-inject-istio.yaml \
-  | kubectl apply -f -
+  --show-only templates/cpol-mut-inject-istio.yaml > lab2-policy.yaml
+
+# Apply generated manifest
+kubectl apply -f lab2-policy.yaml
 ```
 
 ### Bước 2.3: Kiểm tra security context và resources
@@ -214,7 +224,8 @@ metadata:
 spec:
   containers:
     - name: app
-      image: nginx:latest
+      image: docker.io/library/busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]
 EOF
 
 kubectl get pod test-mutation-sec-context -n kyverno-test -o yaml
@@ -233,10 +244,11 @@ metadata:
 spec:
   containers:
     - name: app
-      image: docker.io/library/nginx:latest
+      image: docker.io/library/busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]
 EOF
 
-kubectl get pod test-mutation-monitoring -n kyverno-test -o jsonpath='{.metadata.annotations}'; echo
+kubectl get pod test-mutation-monitoring -n kyverno-test -oyaml |grep 'annotations:' -A15 -B5; echo
 ```
 
 Annotation `prometheus.io/scrape`, `port`, `path` và `scheme` được thêm tự động.
@@ -253,14 +265,17 @@ Kết quả có thể gồm container `istio-proxy`. Template này chỉ là ví
 ### Cleanup Lab 2
 
 ```bash
+# Delete policy
 kubectl delete pod test-mutation-sec-context test-mutation-monitoring \
   -n kyverno-test --ignore-not-found
 kubectl delete deployment app-no-resources -n dev --ignore-not-found
 kubectl delete clusterpolicy add-security-context add-default-resources \
   add-monitoring-annotations inject-istio-sidecar-auto --ignore-not-found
+
+# Remove ns labels  
 kubectl label namespace kyverno-test auto-sec-context- auto-add-requests- \
-  prometheus-monitoring- istio-injection- --ignore-not-found
-kubectl label namespace dev auto-add-requests- --ignore-not-found
+  prometheus-monitoring- istio-injection-
+kubectl label namespace dev auto-add-requests-
 ```
 
 ## Lab 3: Policy GENERATE
@@ -287,7 +302,39 @@ EOF
 
 Secret trên chỉ phục vụ minh họa. Trong môi trường thật, hãy tạo dữ liệu bằng `kubectl create secret docker-registry` thay vì đưa credential vào shell history.
 
-### Bước 3.2: Render và apply đúng các policy của Lab 3
+### Bước 3.2: Cấp quyền tạm thời cho policy clone Secret
+
+Kyverno kiểm tra quyền của background controller khi policy được tạo. Cấp quyền tối thiểu `get` và `create` Secret cho ServiceAccount `kyverno-background-controller` đang chạy trong namespace `kyverno`:
+
+```bash
+cat <<'EOF' | kubectl apply -f -
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-lab3-secret-generator
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-lab3-secret-generator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-lab3-secret-generator
+subjects:
+  - kind: ServiceAccount
+    name: kyverno-background-controller
+    namespace: kyverno
+EOF
+```
+
+Nếu Kyverno được cài ở namespace khác, thay `namespace: kyverno` bằng namespace cài đặt thực tế của Kyverno.
+
+### Bước 3.3: Render và apply đúng các policy của Lab 3
 
 ```bash
 helm template workshop-lab ./templates-chart \
@@ -295,39 +342,62 @@ helm template workshop-lab ./templates-chart \
   --show-only templates/cpol-gen-network-policy.yaml \
   --show-only templates/cpol-gen-resource-quota.yaml \
   --show-only templates/cpol-gen-limit-range.yaml \
-  --show-only templates/cpol-gen-clone-secrets.yaml \
-  | kubectl apply -f -
+  --show-only templates/cpol-gen-clone-secrets.yaml > lab3-policy.yaml
+
+kubectl apply -f lab3-policy.yaml
 ```
 
-### Bước 3.3: Tạo namespace và kiểm tra NetworkPolicy
+### Bước 3.4: Tạo namespace và kiểm tra NetworkPolicy
 
 ```bash
-kubectl create namespace test-gen-ns
-kubectl label namespace test-gen-ns network-policy=enabled clone-secrets=true
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-gen-ns
+  labels:
+    network-policy: "enabled"
+    clone-secrets: "true"
+EOF
+
 kubectl get networkpolicy -n test-gen-ns
+kubectl get secret docker-credentials -n test-gen-ns
 kubectl describe networkpolicy default-deny-ingress -n test-gen-ns
 ```
 
-Kỳ vọng: có NetworkPolicy `default-deny-ingress` và secret `docker-credentials` được clone.
+Kỳ vọng: có NetworkPolicy `default-deny-ingress` và secret `docker-credentials` được clone. Label phải có ngay trong manifest tạo Namespace vì generate rule xử lý admission `CREATE`, không phải lệnh gắn label về sau.
 
-### Bước 3.4: Kiểm tra ResourceQuota
+### Bước 3.5: Kiểm tra ResourceQuota
 
 ```bash
-kubectl create namespace test-dev-quota
-kubectl label namespace test-dev-quota env=development
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-dev-quota
+  labels:
+    env: development
+EOF
+
 kubectl get resourcequota -n test-dev-quota
 kubectl describe resourcequota dev-quota -n test-dev-quota
 ```
 
-### Bước 3.5: Kiểm tra LimitRange
+### Bước 3.6: Kiểm tra LimitRange
 
 ```bash
-kubectl create namespace test-limits
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-limits
+EOF
+
 kubectl get limitrange -n test-limits
 kubectl describe limitrange default-limits -n test-limits
 ```
 
-### Bước 3.6: Kiểm tra tác động của resource được generate
+### Bước 3.7: Kiểm tra tác động của resource được generate
 
 ```bash
 cat <<'EOF' | kubectl apply -f - -n test-dev-quota
@@ -353,6 +423,8 @@ kubectl delete namespace test-gen-ns test-dev-quota test-limits --ignore-not-fou
 kubectl delete clusterpolicy generate-network-policies generate-resource-quotas \
   generate-limit-ranges clone-registry-secrets --ignore-not-found
 kubectl delete secret docker-credentials -n default --ignore-not-found
+kubectl delete clusterrolebinding kyverno-lab3-secret-generator --ignore-not-found
+kubectl delete clusterrole kyverno-lab3-secret-generator --ignore-not-found
 ```
 
 ## Lab 4: Quản lý policy
@@ -374,12 +446,12 @@ kubectl patch clusterpolicy disallow-root-user \
 
 Khi hoàn tất, xóa đúng các policy đã render ở lab tương ứng. Không dùng `kubectl delete clusterpolicy --all` nếu cluster đang có policy của workload khác.
 
-## Lab 5: Xử lý sự cố và thực hành tốt
+## Lab 5: Xử lý sự cố
 
 ### Policy không được áp dụng
 
 ```bash
-kubectl get pods -n kyverno-system
+kubectl get pods -n kyverno
 kubectl get validatingwebhookconfigurations
 kubectl get mutatingwebhookconfigurations
 kubectl get namespace kyverno-test --show-labels
@@ -392,8 +464,8 @@ Kiểm tra namespace có đúng label theo values của lab hay không. Nếu po
 
 ```bash
 kubectl get policyreport -A
-kubectl top pod -n kyverno-system
-kubectl logs -n kyverno-system -l app.kubernetes.io/name=kyverno --tail=200
+kubectl top pod -n kyverno
+kubectl logs -n kyverno -l app.kubernetes.io/name=kyverno --tail=200
 ```
 
 Nên bắt đầu với `audit`, theo dõi PolicyReport, sau đó mới chuyển sang `enforce`. Chỉ áp dụng policy lên namespace có selector rõ ràng và loại trừ namespace hệ thống khi cần.
@@ -402,15 +474,15 @@ Nên bắt đầu với `audit`, theo dõi PolicyReport, sau đó mới chuyển
 
 ```bash
 kubectl delete namespace kyverno-test dev prod --ignore-not-found
-helm uninstall kyverno -n kyverno-system
-kubectl delete namespace kyverno-system --ignore-not-found
+helm uninstall kyverno --namespace kyverno
+kubectl delete namespace kyverno --ignore-not-found
 ```
 
-## Bạn đã học được
+## Nội dung cần nắm được sau khi thực hành
 
 - Validation policy để phát hiện hoặc chặn cấu hình không phù hợp.
 - Mutation policy để tự động chuẩn hóa Pod.
 - Generate policy để tạo resource theo sự kiện namespace.
 - Cách dùng selector và values riêng để giới hạn phạm vi policy.
 - Sự khác nhau giữa `audit` và `enforce`.
-- Cách xem PolicyReport và dọn đúng tài nguyên của từng lab.
+- Cách xem PolicyReport và dọn dẹp đúng tài nguyên của từng lab.
