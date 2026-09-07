@@ -1,791 +1,149 @@
 # Kyverno Use-Cases: Validate, Mutate, Generate
-## Hướng dẫn thực tế cho Workshop
 
----
+Tài liệu này mô tả các use-case hiện được hỗ trợ bởi Helm chart `templates-chart`. Mỗi policy phải được render qua Helm với values phù hợp trước khi apply. Quy trình thực hành đầy đủ, lệnh render và cleanup nằm trong [WORKSHOP_LAB.md](WORKSHOP_LAB.md).
 
-## 1. VALIDATE POLICIES (5 Use-Cases)
+## Cách sử dụng chart
 
-### 1.1 Disallow Running as Root User
-**Pain Point**: Containers chạy với root user gây rủi ro bảo mật cao. Cần enforce toàn cluster.
+Chạy các lệnh từ thư mục `use-cases`. Ba file values dành cho các lab chỉ bật policy cần thiết của từng bài:
 
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment, StatefulSet, DaemonSet, Job`  
+| Lab | Values file | Nhóm policy |
+|---|---|---|
+| Lab 1 | `templates-chart/values-lab-1.yaml` | Validate |
+| Lab 2 | `templates-chart/values-lab-2.yaml` | Mutate |
+| Lab 3 | `templates-chart/values-lab-3.yaml` | Generate |
 
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: disallow-root-user
-spec:
-  validationFailureAction: enforce  # enforce: block, audit: log only
-  rules:
-  - name: check-run-as-non-root
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: "Running as root is not allowed"
-      pattern:
-        spec:
-          containers:
-          - securityContext:
-              runAsNonRoot: true
+Không apply trực tiếp các file trong `templates-chart/templates`. Chúng là Helm template và cần được render trước:
+
+```bash
+helm template workshop-lab ./templates-chart \
+  --values ./templates-chart/values-lab-1.yaml \
+  --show-only templates/cpol-val-disallow-root-user.yaml
 ```
 
----
+## 1. Validate Policies
 
-### 1.2 Require Image Digest Instead of Tag
-**Pain Point**: Image tags có thể thay đổi, không đảm bảo reproducibility. Phải dùng digest để cố định image.
+Các policy Validate kiểm tra resource tại admission. `validationFailureAction` nhận `audit` để ghi vi phạm nhưng vẫn cho phép request, hoặc `enforce` để từ chối request.
 
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment, StatefulSet, DaemonSet`  
+| Use-case | Helm template | ClusterPolicy | Selector và cấu hình chính |
+|---|---|---|---|
+| Không chạy container bằng root | `cpol-val-disallow-root-user.yaml` | `disallow-root-user` | `policies.validate.disallowRoot`; kiểm tra `runAsNonRoot: true` |
+| Bắt buộc image digest | `cpol-val-require-image-digest.yaml` | `require-image-digest` | `policies.validate.requireImageDigest`; image phải theo dạng digest |
+| Bắt buộc requests và limits | `cpol-val-enforce-resources.yaml` | `enforce-resource-quotas` | `policies.validate.enforceResources`; CPU và memory requests/limits |
+| Hạn chế image registry | `cpol-val-restrict-registries.yaml` | `restrict-untrusted-registries` | `policies.validate.restrictRegistries`; `approvedRegistries` |
+| Bắt buộc metadata labels | `cpol-val-require-labels.yaml` | `require-labels` | `policies.validate.requireLabels`; `requiredLabels` |
 
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: require-image-digest
-spec:
-  validationFailureAction: enforce
-  rules:
-  - name: validate-image-digest
-    match:
-      resources:
-        kinds:
-        - Pod
-      namespaceSelector:
-        matchLabels:
-          require-image-digest: "true"
-    validate:
-      message: "Image must be referenced by digest (sha256:...), not by tag"
-      pattern:
-        spec:
-          containers:
-          - image: "*/*/sha256:*"
-```
+### 1.1 Không chạy container bằng root
 
----
-
-### 1.3 Enforce Resource Requests and Limits
-**Pain Point**: Pods không khai báo resource requests/limits gây khó dự đoán workload, làm cluster scheduling bị lệch.
-
-**Scope**: Namespace-specific (dev, staging, prod có yêu cầu khác nhau)  
-**Object Type**: `ClusterPolicy` (with namespace selector)  
-**Kind**: `Pod, Deployment, StatefulSet`  
+Policy kiểm tra từng container của resource được match có `securityContext.runAsNonRoot: true`. Trong `values-lab-1.yaml`, policy áp dụng cho Pod trong namespace có label:
 
 ```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: require-resources
-spec:
-  validationFailureAction: enforce
-  rules:
-  - name: validate-resources
-    match:
-      resources:
-        kinds:
-        - Pod
-      namespaceSelector:
-        matchLabels:
-          require-resources: "true"
-    validate:
-      message: "CPU and memory requests/limits are required"
-      pattern:
-        spec:
-          containers:
-          - resources:
-              requests:
-                memory: "?*"
-                cpu: "?*"
-              limits:
-                memory: "?*"
-                cpu: "?*"
+require-resources: "true"
 ```
 
----
+### 1.2 Bắt buộc image digest
 
-### 1.4 Restrict Container Image Registries
-**Pain Point**: Devs có thể pull images từ untrusted registries, gây security breach. Cần whitelist approved registries.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment, StatefulSet`  
+Policy chỉ chấp nhận image có digest, thay vì mutable tag như `latest` hoặc `v1`. Bật policy bằng `policies.validate.requireImageDigest.enabled: true` và gán label selector đã cấu hình trong values, mặc định là:
 
 ```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: restrict-registries
-spec:
-  validationFailureAction: enforce
-  rules:
-  - name: validate-registry
-    match:
-      resources:
-        kinds:
-        - Pod
-    validate:
-      message: "Images must come from: gcr.io, docker.io, or quay.io only"
-      pattern:
-        spec:
-          containers:
-          - image: "gcr.io/* | docker.io/* | quay.io/*"
+require-image-digest: "true"
 ```
 
----
+### 1.3 Bắt buộc requests và limits
 
-### 1.5 Require Pod Disruption Budget (PDB)
-**Pain Point**: Pods bị terminate khi cluster maintenance → downtime. Cần PDB để ensure availability.
-
-**Scope**: Namespace-specific (chỉ critical services)  
-**Object Type**: `Policy`  
-**Kind**: `Deployment, StatefulSet`  
+Policy `enforce-resource-quotas` yêu cầu mọi container có đủ bốn trường: CPU/memory `requests` và CPU/memory `limits`. Selector hiện dùng cho Lab 1 là:
 
 ```yaml
-apiVersion: kyverno.io/v1
-kind: Policy
-metadata:
-  name: require-pdb
-  namespace: production
-spec:
-  validationFailureAction: audit
-  rules:
-  - name: validate-pdb-exists
-    match:
-      resources:
-        kinds:
-        - Deployment
-        selector:
-          matchLabels:
-            required-pdb: "true"
-    validate:
-      message: "Pod Disruption Budget must exist for this deployment"
-      # Validation yêu cầu PDB phải tồn tại (complex validation)
-      # Có thể dùng CEL rule hoặc kiểm tra via Kyverno webhook
+require-resources: "true"
 ```
 
----
+Tên ClusterPolicy là `enforce-resource-quotas`, không phải `require-resources`.
 
-## 2. MUTATE POLICIES (10 Use-Cases)
+### 1.4 Hạn chế image registry
 
-### 2.1 Inject Istio Sidecar Proxy
-**Pain Point**: DevOps phải manually inject Istio sidecar vào từng pod, dễ quên, inconsistent.
-
-**Scope**: Namespace-specific (inject theo label)  
-**Object Type**: `Policy` hoặc `ClusterPolicy` (với namespace selector)  
-**Kind**: `Pod`  
+Policy `restrict-untrusted-registries` kiểm tra image theo danh sách `approvedRegistries`. Lab 1 chỉ áp dụng policy lên namespace có label:
 
 ```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: inject-istio-sidecar
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: inject-sidecar
-    match:
-      resources:
-        kinds:
-        - Pod
-      namespaceSelector:
-        matchLabels:
-          istio-injection: enabled
-    mutate:
-      patchStrategicMerge:
-        metadata:
-          labels:
-            version: v1
-        spec:
-          containers:
-          - name: istio-proxy
-            image: istio/proxyv2:1.17.0
-            ports:
-            - containerPort: 15000
+restrict-registries: "true"
 ```
 
----
+Danh sách mặc định trong values Lab 1 là `gcr.io`, `docker.io` và `quay.io`. Dùng một registry ngoài danh sách để kiểm thử từ chối. Image thuộc `docker.io` sẽ được cho phép.
 
-### 2.2 Add Security Context to All Containers
-**Pain Point**: Containers mặc định chạy với permissive capabilities. Cần auto-apply restrictive security context.
+### 1.5 Bắt buộc labels
 
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment, StatefulSet`  
+Policy `require-labels` kiểm tra các metadata label đã khai báo trong `requiredLabels`, mặc định trong values gốc là `app`, `version`, và `managed-by`. Đây là use-case validate metadata đang được chart hỗ trợ; chart không có policy yêu cầu PodDisruptionBudget.
+
+## 2. Mutate Policies
+
+Các policy Mutate tự bổ sung cấu hình khi resource được tạo. Các policy hiện tại match `Pod`; không có template tương ứng cho Deployment hoặc StatefulSet trực tiếp.
+
+| Use-case | Helm template | ClusterPolicy | Selector và cấu hình chính |
+|---|---|---|---|
+| Thêm restrictive security context | `cpol-mut-add-security-context.yaml` | `add-security-context` | `auto-sec-context: "true"`; `securityContext` |
+| Thêm resource defaults | `cpol-mut-add-default-resources.yaml` | `add-default-resources` | `auto-add-requests: "true"`; `resources` |
+| Thêm Prometheus annotations | `cpol-mut-add-monitoring.yaml` | `add-monitoring-annotations` | `prometheus-monitoring: "enabled"`; `annotations` |
+| Thêm Istio proxy mẫu | `cpol-mut-inject-istio.yaml` | `inject-istio-sidecar-auto` | `istio-injection: "enabled"`; `image`, `excludeNamespaces` |
+
+### 2.1 Restrictive security context
+
+Policy thêm `runAsNonRoot`, `runAsUser`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation` và danh sách capability cần drop. Chỉ bật nó cho namespace có `auto-sec-context: "true"`.
+
+Lưu ý: `readOnlyRootFilesystem: true` yêu cầu workload có writable volume tại các đường dẫn ứng dụng cần ghi. Ví dụ NGINX mặc định cần cấu hình thêm writable volume; workshop dùng BusyBox cho bài kiểm thử để tránh lỗi runtime này.
+
+### 2.2 Resource defaults
+
+Policy thêm CPU và memory requests/limits theo `policies.mutate.addDefaultResources.resources`. Selector mặc định của Lab 2 là `auto-add-requests: "true"`. Đây là policy thay thế cho template `cpol-mut-set-memory-requests.yaml` đã deprecated.
+
+### 2.3 Prometheus annotations
+
+Policy thêm các annotation `prometheus.io/scrape`, `prometheus.io/port`, `prometheus.io/path` và `prometheus.io/scheme` cho Pod trong namespace có `prometheus-monitoring: "enabled"`.
+
+### 2.4 Istio sidecar mẫu
+
+Policy thêm container `istio-proxy` vào Pod trong namespace có `istio-injection: "enabled"`. Image, tag và namespace loại trừ cấu hình được trong values. Không bật đồng thời policy này với injection native của Istio trong cùng namespace.
+
+Chart không còn template cho các use-case sau và chúng không được khuyến nghị trong workshop hiện tại: tự thêm `imagePullSecrets`, nhãn NetworkPolicy, `priorityClassName`, init container chờ database, hoặc audit logging sidecar.
+
+## 3. Generate Policies
+
+Các policy Generate tạo resource khi admission request tạo Namespace match selector. Nhãn phải nằm trong manifest tạo Namespace; gắn label sau khi Namespace đã được tạo sẽ không kích hoạt generate rule.
+
+| Use-case | Helm template | ClusterPolicy | Resource tạo ra | Selector và cấu hình chính |
+|---|---|---|---|---|
+| Tạo default-deny NetworkPolicy | `cpol-gen-network-policy.yaml` | `generate-network-policies` | `NetworkPolicy` | `network-policy: "enabled"` |
+| Clone registry Secret | `cpol-gen-clone-secrets.yaml` | `clone-registry-secrets` | `Secret` | `clone-secrets: "true"` |
+| Tạo ResourceQuota | `cpol-gen-resource-quota.yaml` | `generate-resource-quotas` | `ResourceQuota` | `env: development` hoặc `env: production` |
+| Tạo LimitRange | `cpol-gen-limit-range.yaml` | `generate-limit-ranges` | `LimitRange` | Match mọi Namespace trong values Lab 3 |
+
+### 3.1 Default-deny NetworkPolicy
+
+Policy tạo `NetworkPolicy` tên `default-deny-ingress` khi Namespace được tạo với label:
 
 ```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: add-security-context
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-security-context
-    match:
-      resources:
-        kinds:
-        - Pod
-    mutate:
-      patchStrategicMerge:
-        spec:
-          containers:
-          - (name): "*"
-            securityContext:
-              runAsNonRoot: true
-              runAsUser: 1000
-              readOnlyRootFilesystem: true
-              allowPrivilegeEscalation: false
-              capabilities:
-                drop:
-                - ALL
+network-policy: "enabled"
 ```
 
----
+### 3.2 Clone registry Secret
 
-### 2.3 Add Default Labels to All Workloads
-**Pain Point**: Workloads không có consistent labels → khó quản lý, monitoring, cost tracking.
+Policy clone Secret `docker-credentials` từ namespace `default` sang Namespace mới có label `clone-secrets: "true"`. Secret nguồn phải tồn tại trước khi policy được áp dụng. Background controller của Kyverno cũng cần quyền `get` và `create` Secrets; manifest RBAC tạm thời cho Lab 3 nằm trong [WORKSHOP_LAB.md](WORKSHOP_LAB.md).
 
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment, StatefulSet`  
+### 3.3 ResourceQuota
 
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: add-default-labels
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-managed-by-label
-    match:
-      resources:
-        kinds:
-        - Pod
-    mutate:
-      patchStrategicMerge:
-        metadata:
-          labels:
-            managed-by: kyverno
-            environment: "{{ request.namespace }}"
-            created-by: "{{ serviceAccountName }}"
-```
+Policy tạo quota `dev-quota` cho Namespace có `env: development` và `prod-quota` cho Namespace có `env: production`. Mỗi quota có resource hard limits riêng trong `policies.generate.generateResourceQuota.quotas`.
 
----
+### 3.4 LimitRange
 
-### 2.4 Add Registry Credentials to Pods
-**Pain Point**: Pods pull từ private registries nhưng cần imagePullSecrets. Manual add dễ quên.
+Policy tạo LimitRange `default-limits` cho Namespace mới, gồm giới hạn min/max và default requests/limits cho Container và Pod. Điều chỉnh tại `policies.generate.generateLimitRange`.
 
-**Scope**: Namespace-specific (per-registry)  
-**Object Type**: `Policy`  
-**Kind**: `Pod, Deployment, StatefulSet`  
+Chart không có Generate policy tạo ServiceAccount hoặc RoleBinding cho Namespace mới.
 
-```yaml
-apiVersion: kyverno.io/v1
-kind: Policy
-metadata:
-  name: add-registry-credentials
-  namespace: default
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-imagepullsecret
-    match:
-      resources:
-        kinds:
-        - Pod
-        selector:
-          matchLabels:
-            use-private-registry: "true"
-    mutate:
-      patchStrategicMerge:
-        spec:
-          imagePullSecrets:
-          - name: docker-credentials
-```
+## Phạm vi được hỗ trợ
 
----
+Use-case này được xác định bởi các template ClusterPolicy cấu hình được qua `values.yaml` và các values theo Lab. Các template namespace-scoped hard-code, template duplicate và template deprecated không nằm trong chart nữa hoặc không được render trong lệnh `--show-only` của workshop.
 
-### 2.5 Add Network Policy Label to Pods
-**Pain Point**: Pods mới không có network policy label → traffic không được regulate.
+## Lưu ý khi vận hành trong thực tế
 
-**Scope**: Namespace-specific  
-**Object Type**: `Policy`  
-**Kind**: `Pod, Deployment`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: Policy
-metadata:
-  name: add-network-policy-label
-  namespace: production
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-network-label
-    match:
-      resources:
-        kinds:
-        - Pod
-    mutate:
-      patchStrategicMerge:
-        metadata:
-          labels:
-            network-zone: internal
-            allow-ingress: "false"
-```
-
----
-
-### 2.6 Add Resource Requests for Memory and CPU
-**Pain Point**: Pods không request resources → cluster scheduler mất hướng, OOMKill random.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment, StatefulSet`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: add-default-resources
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: set-default-requests
-    match:
-      resources:
-        kinds:
-        - Pod
-      namespaceSelector:
-        matchExpressions:
-        - key: auto-resources
-          operator: In
-          values:
-          - "true"
-    mutate:
-      patchStrategicMerge:
-        spec:
-          containers:
-          - (name): "*"
-            resources:
-              requests:
-                memory: "128Mi"
-                cpu: "100m"
-              limits:
-                memory: "512Mi"
-                cpu: "500m"
-```
-
----
-
-### 2.7 Add Prometheus Annotations for Monitoring
-**Pain Point**: Monitoring bị miss metrics vì pods không expose metrics endpoint annotations.
-
-**Scope**: Namespace-specific  
-**Object Type**: `Policy`  
-**Kind**: `Pod, Deployment`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: Policy
-metadata:
-  name: add-prometheus-annotations
-  namespace: monitoring
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-prometheus-scrape
-    match:
-      resources:
-        kinds:
-        - Pod
-    mutate:
-      patchStrategicMerge:
-        metadata:
-          annotations:
-            prometheus.io/scrape: "true"
-            prometheus.io/port: "8080"
-            prometheus.io/path: "/metrics"
-```
-
----
-
-### 2.8 Add Pod Priority Class
-**Pain Point**: Critical pods bị evict trước non-critical pods khi node out-of-resources.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Pod, Deployment`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: add-pod-priority
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-priority-critical
-    match:
-      resources:
-        kinds:
-        - Pod
-        selector:
-          matchLabels:
-            priority: critical
-    mutate:
-      patchStrategicMerge:
-        spec:
-          priorityClassName: critical-pods
-```
-
----
-
-### 2.9 Add Init Container for Dependency Check
-**Pain Point**: Services start trước dependencies sẵn sàng → race conditions, connection errors.
-
-**Scope**: Namespace-specific  
-**Object Type**: `Policy`  
-**Kind**: `Pod, Deployment`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: Policy
-metadata:
-  name: add-init-wait-for-db
-  namespace: backend
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: add-init-container
-    match:
-      resources:
-        kinds:
-        - Pod
-        selector:
-          matchLabels:
-            wait-for-db: "true"
-    mutate:
-      patchStrategicMerge:
-        spec:
-          initContainers:
-          - name: wait-for-db
-            image: busybox:1.35
-            command: ['sh', '-c', 'until nc -z db 5432; do echo waiting for db; sleep 2; done;']
-```
-
----
-
-### 2.10 Add Audit Logging Sidecar
-**Pain Point**: Compliance yêu cầu log mọi API calls. Cần sidecar logging cho audit trail.
-
-**Scope**: Namespace-specific (regulated environments)  
-**Object Type**: `Policy`  
-**Kind**: `Pod, Deployment`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: Policy
-metadata:
-  name: add-audit-sidecar
-  namespace: compliance
-spec:
-  mutationFailureAction: audit
-  rules:
-  - name: inject-audit-logger
-    match:
-      resources:
-        kinds:
-        - Pod
-    mutate:
-      patchStrategicMerge:
-        spec:
-          containers:
-          - name: audit-logger
-            image: audit-logger:v1
-            volumeMounts:
-            - name: shared-logs
-              mountPath: /var/log
-          volumes:
-          - name: shared-logs
-            emptyDir: {}
-```
-
----
-
-## 3. GENERATE POLICIES (5 Use-Cases)
-
-### 3.1 Auto-Create NetworkPolicy for New Namespaces
-**Pain Point**: Namespaces mới không có network isolation → traffic có thể đi qua tất cả pods.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Namespace`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: generate-default-network-policy
-spec:
-  rules:
-  - name: create-default-deny-ingress
-    match:
-      resources:
-        kinds:
-        - Namespace
-        selector:
-          matchLabels:
-            network-policy: enabled
-    generate:
-      kind: NetworkPolicy
-      name: default-deny-ingress
-      namespace: "{{ request.object.metadata.name }}"
-      data:
-        apiVersion: networking.k8s.io/v1
-        kind: NetworkPolicy
-        metadata:
-          name: default-deny-ingress
-        spec:
-          podSelector: {}
-          policyTypes:
-          - Ingress
-```
-
----
-
-### 3.2 Clone Registry Secrets to New Namespaces
-**Pain Point**: Pods ở namespaces khác không thể pull từ private registries (missing imagePullSecrets).
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Namespace`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: clone-registry-secret
-spec:
-  rules:
-  - name: clone-docker-secret
-    match:
-      resources:
-        kinds:
-        - Namespace
-    generate:
-      kind: Secret
-      name: docker-registry-credentials
-      namespace: "{{ request.object.metadata.name }}"
-      clone:
-        namespace: default
-        name: docker-registry-credentials
-```
-
----
-
-### 3.3 Create RBAC ServiceAccount with Role Binding
-**Pain Point**: Teams khó setup ServiceAccounts + RoleBindings mỗi khi tạo namespace mới.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Namespace`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: generate-default-rbac
-spec:
-  rules:
-  - name: create-default-sa
-    match:
-      resources:
-        kinds:
-        - Namespace
-        selector:
-          matchLabels:
-            auto-rbac: "true"
-    generate:
-      kind: ServiceAccount
-      name: default-app
-      namespace: "{{ request.object.metadata.name }}"
-      data:
-        apiVersion: v1
-        kind: ServiceAccount
-        metadata:
-          name: default-app
-  
-  - name: create-role-binding
-    match:
-      resources:
-        kinds:
-        - Namespace
-        selector:
-          matchLabels:
-            auto-rbac: "true"
-    generate:
-      kind: RoleBinding
-      name: default-app-reader
-      namespace: "{{ request.object.metadata.name }}"
-      data:
-        apiVersion: rbac.authorization.k8s.io/v1
-        kind: RoleBinding
-        metadata:
-          name: default-app-reader
-        subjects:
-        - kind: ServiceAccount
-          name: default-app
-        roleRef:
-          kind: Role
-          name: pod-reader
-          apiGroup: rbac.authorization.k8s.io
-```
-
----
-
-### 3.4 Create Resource Quota for New Namespaces
-**Pain Point**: Namespaces mới không giới hạn resource → một app có thể consume hết cluster resources.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Namespace`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: generate-resource-quota
-spec:
-  rules:
-  - name: create-quota
-    match:
-      resources:
-        kinds:
-        - Namespace
-        selector:
-          matchLabels:
-            env: development
-    generate:
-      kind: ResourceQuota
-      name: dev-quota
-      namespace: "{{ request.object.metadata.name }}"
-      data:
-        apiVersion: v1
-        kind: ResourceQuota
-        metadata:
-          name: dev-quota
-        spec:
-          hard:
-            requests.cpu: "5"
-            requests.memory: "10Gi"
-            limits.cpu: "10"
-            limits.memory: "20Gi"
-            pods: "100"
-```
-
----
-
-### 3.5 Create LimitRange for Container Resource Defaults
-**Pain Point**: Containers không có default resource limits → scheduling bị lệch, OOMKill xảy ra.
-
-**Scope**: Cluster-wide  
-**Object Type**: `ClusterPolicy`  
-**Kind**: `Namespace`  
-
-```yaml
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: generate-limit-range
-spec:
-  rules:
-  - name: create-limit-range
-    match:
-      resources:
-        kinds:
-        - Namespace
-    generate:
-      kind: LimitRange
-      name: default-limits
-      namespace: "{{ request.object.metadata.name }}"
-      data:
-        apiVersion: v1
-        kind: LimitRange
-        metadata:
-          name: default-limits
-        spec:
-          limits:
-          - max:
-              cpu: "2"
-              memory: "2Gi"
-            min:
-              cpu: "50m"
-              memory: "64Mi"
-            default:
-              cpu: "500m"
-              memory: "512Mi"
-            defaultRequest:
-              cpu: "100m"
-              memory: "128Mi"
-            type: Container
-```
-
----
-
-## Summary Table
-
-| Use-Case | Type | Scope | Policy Type | Pain Point |
-|----------|------|-------|-------------|-----------|
-| **Validate #1** | Disallow Root | Cluster | ClusterPolicy | Security risk |
-| **Validate #2** | Image Digest | Cluster | ClusterPolicy | Reproducibility |
-| **Validate #3** | Resources | Namespace | ClusterPolicy+Selector | Unpredictable load |
-| **Validate #4** | Registry Whitelist | Cluster | ClusterPolicy | Untrusted images |
-| **Validate #5** | Require PDB | Namespace | Policy | Downtime risk |
-| **Mutate #1** | Istio Sidecar | Namespace | ClusterPolicy+Label | Manual injection |
-| **Mutate #2** | Security Context | Cluster | ClusterPolicy | Permissive defaults |
-| **Mutate #3** | Default Labels | Cluster | ClusterPolicy | Inconsistent labeling |
-| **Mutate #4** | Registry Credentials | Namespace | Policy | Missing imagePullSecrets |
-| **Mutate #5** | Network Label | Namespace | Policy | No traffic control |
-| **Mutate #6** | Default Resources | Cluster | ClusterPolicy | Resource exhaustion |
-| **Mutate #7** | Prometheus Annotations | Namespace | Policy | Missing metrics |
-| **Mutate #8** | Pod Priority | Cluster | ClusterPolicy | Unfair eviction |
-| **Mutate #9** | Init Container | Namespace | Policy | Race conditions |
-| **Mutate #10** | Audit Sidecar | Namespace | Policy | Compliance gap |
-| **Generate #1** | NetworkPolicy | Cluster | ClusterPolicy | No isolation |
-| **Generate #2** | Registry Secret | Cluster | ClusterPolicy | Access denied |
-| **Generate #3** | RBAC | Cluster | ClusterPolicy | Manual setup |
-| **Generate #4** | ResourceQuota | Cluster | ClusterPolicy | Resource hogging |
-| **Generate #5** | LimitRange | Cluster | ClusterPolicy | OOMKill |
-
----
-
-## Lưu ý cho Workshop
-
-1. **Validate vs Mutate vs Generate**:
-   - **Validate**: Kiểm tra compliance, từ chối nếu không đạt (enforce/audit mode)
-   - **Mutate**: Tự động sửa/thêm cấu hình để compliance
-   - **Generate**: Tự động tạo resource mới (không khi namespace tạo, resource tạo, etc.)
-
-2. **ClusterPolicy vs Policy**:
-   - **ClusterPolicy**: Cluster-wide, toàn bộ namespaces (trừ khi có namespace selector)
-   - **Policy**: Namespace-specific, chỉ áp dụng trong namespace đó
-
-3. **Failure Action**:
-   - **enforce**: Block request nếu vi phạm (DENY)
-   - **audit**: Log violation nhưng allow request (LOG ONLY)
-
-4. **Performance Consideration**:
-   - Tránh quá nhiều ClusterPolicy (gọi webhook cho mỗi request)
-   - Dùng namespace selectors để giảm scope
-   - Test với audit mode trước khi enforce
-
-5. **Ordering**:
-   - Khi có multiple policies, xử lý theo thứ tự: Mutate → Validate → Generate
-   - Mutate policies chạy trước nên có thể modify spec rồi validate
+- Bắt đầu validation với `audit`, xem `PolicyReport`, rồi mới chuyển sang `enforce`.
+- Dùng `match.resources.namespaceSelector` cho policy áp dụng lên workload trong namespace có label.
+- Dùng `match.resources.selector` cho generate policy cần lọc label của chính resource `Namespace`.
+- Kiểm tra resource đã render trước khi apply: `helm template ...`.
+- Chỉ xóa các ClusterPolicy, RBAC và resource test do lab đã tạo; không chạy `kubectl delete clusterpolicy --all` trên cluster dùng chung.

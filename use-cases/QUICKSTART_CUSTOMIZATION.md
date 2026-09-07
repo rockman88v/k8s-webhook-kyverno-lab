@@ -1,369 +1,207 @@
-# 🚀 Policy Customization - Quick Start Guide
+# Bắt đầu nhanh: Tùy chỉnh Kyverno Policy
 
-## What Is This?
+Policy trong `templates-chart` được cấu hình bằng Helm values. Bắt đầu từ file mẫu, render manifest để kiểm tra, rồi chỉ apply những template cần thiết.
 
-All Kyverno policies in this workshop are now **100% customizable via Helm values**.
+## Bước 1: Tạo file values riêng
 
-No more editing YAML files! Just customize values and deploy.
-
----
-
-## ⚡ 5-Minute Quick Start
-
-### Step 1: Copy the template
 ```bash
-cd use-cases/templates-chart
-
-# Copy the custom values template
-cp values-custom.yaml values-myorg.yaml
-```
-
-### Step 2: Choose an example and uncomment
-```bash
-# Edit and uncomment ONE of the 15 examples
+cd /home/vagrant/k8s-webhook-kyverno-lab/use-cases
+cp templates-chart/values-custom.yaml values-myorg.yaml
 vi values-myorg.yaml
-
-# Examples include:
-# - EXAMPLE 1: Development environment (permissive)
-# - EXAMPLE 2: Production environment (strict)
-# - EXAMPLE 3: Custom labels for organization
-# - EXAMPLE 4: Custom resource defaults per env
-# - EXAMPLE 5: Different Istio versions
-# - ... and 5 more
 ```
 
-### Step 3: Deploy
-```bash
-# Deploy with your custom values
-helm upgrade kyverno . -f values-myorg.yaml
-```
+File [CUSTOMIZATION_GUIDE.md](CUSTOMIZATION_GUIDE.md) mô tả toàn bộ values được hỗ trợ. Các file `values-lab-1.yaml`, `values-lab-2.yaml` và `values-lab-3.yaml` là ví dụ đã được chuẩn bị cho workshop.
 
-### Step 4: Verify
-```bash
-# Check values were applied
-helm get values kyverno
+## Bước 2: Chọn policy cần bật
 
-# Check policy is deployed
-kubectl get clusterpolicy
+Ví dụ chỉ bật security context và resource defaults cho namespace đã gắn label:
 
-# Test with a sample pod
-kubectl run test --image=nginx -n default
-```
-
-Done! 🎉
-
----
-
-## 📚 What Can You Customize?
-
-✅ Enable/disable individual policies  
-✅ Change failure modes (audit → enforce)  
-✅ Add custom labels to pods  
-✅ Set resource defaults (CPU, memory)  
-✅ Change Istio version for injection  
-✅ Customize security settings  
-✅ Override Prometheus scrape config  
-✅ Set different values per environment  
-✅ Exclude specific namespaces/containers  
-✅ And much more!
-
----
-
-## 📖 Learn More
-
-**New to customization?**  
-→ Read: [CUSTOMIZATION_GUIDE.md](../CUSTOMIZATION_GUIDE.md)
-
-**Want detailed examples?**  
-→ See: [values-custom.yaml](values-custom.yaml) (15 examples)
-
-**Need reference docs?**  
-→ Check: [../INDEX.md](../INDEX.md)
-
----
-
-## 🎯 Common Use Cases
-
-### Case 1: Add Your Company Labels
 ```yaml
-# values-myorg.yaml
 policies:
+  validate:
+    enabled: false
   mutate:
-    addDefaultLabels:
-      enabled: true
-      labels:
-        managed-by: "kyverno"
-        team: "your-team-name"
-      additionalLabels:
-        cost-center: "your-cost-center"
-        owner: "your-email@company.com"
-```
-
-Deploy:
-```bash
-helm upgrade kyverno . -f values-myorg.yaml
-```
-
-### Case 2: Production-Grade Resources
-```yaml
-# values-prod.yaml
-policies:
-  mutate:
-    addDefaultResources:
-      enabled: true
-      failureAction: enforce  # Block if can't apply
-      resources:
-        requests:
-          cpu: "500m"      # Half a CPU
-          memory: "512Mi"  # 512MB
-        limits:
-          cpu: "2000m"     # 2 CPUs max
-          memory: "2Gi"    # 2GB max
-```
-
-Deploy:
-```bash
-helm upgrade kyverno . -f values-prod.yaml
-```
-
-### Case 3: Strict Security Only
-```yaml
-# values-security.yaml
-policies:
-  mutate:
+    enabled: true
     addSecurityContext:
       enabled: true
-      failureAction: enforce
-    addDefaultLabels:
-      enabled: false
+      namespaceSelector:
+        matchLabels:
+          auto-sec-context: "true"
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop: [ALL]
     addDefaultResources:
-      enabled: false
+      enabled: true
+      namespaceSelector:
+        matchLabels:
+          auto-add-requests: "true"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 512Mi
+  generate:
+    enabled: false
+
+global:
+  background: true
 ```
 
-Deploy:
+## Bước 3: Render policy
+
+Không apply trực tiếp file trong `templates/`. Render bằng Helm trước:
+
 ```bash
-helm upgrade kyverno . -f values-security.yaml
+helm template my-policies ./templates-chart \
+  --values ./values-myorg.yaml \
+  --show-only templates/cpol-mut-add-security-context.yaml \
+  --show-only templates/cpol-mut-add-default-resources.yaml \
+  > my-policies.yaml
 ```
 
----
+Kiểm tra output, đặc biệt `metadata.name`, selector và resource values:
 
-## 🔍 How It Works
+```bash
+kubectl apply --dry-run=server -f my-policies.yaml
+```
 
-**Before customization** (hard-coded):
-```yaml
-# Old cpol-mut-add-default-labels.yaml
+## Bước 4: Apply và xác minh
+
+```bash
+kubectl apply -f my-policies.yaml
+kubectl get clusterpolicy
+kubectl get namespace --show-labels
+```
+
+Gắn label để policy có selector được áp dụng:
+
+```bash
+kubectl label namespace dev auto-sec-context=true auto-add-requests=true --overwrite
+```
+
+Tạo Pod thử nghiệm:
+
+```bash
+cat <<'EOF' | kubectl apply -f - -n dev
+apiVersion: v1
+kind: Pod
 metadata:
-  labels:
-    managed-by: kyverno          # Fixed!
-    app: "{{ request.namespace }}"
+  name: custom-policy-test
+spec:
+  containers:
+    - name: app
+      image: docker.io/library/busybox:1.36
+      command: ["sh", "-c", "sleep 3600"]
+EOF
+
+kubectl get pod custom-policy-test -n dev -o yaml
 ```
 
-**After customization** (Helm templating):
-```yaml
-# New cpol-mut-add-default-labels.yaml
-metadata:
-  labels:
-    {{- range $key, $value := .Values.policies.mutate.addDefaultLabels.labels }}
-    {{ $key }}: "{{ tpl $value . }}"  # From values!
-    {{- end }}
-```
+## Các tình huống thông dụng
 
-**Your values.yaml**:
+### Chỉ bật Validate security
+
 ```yaml
 policies:
+  validate:
+    enabled: true
+    disallowRoot:
+      enabled: true
+      failureAction: audit
+      resourceKinds: [Pod]
+      namespaceSelector:
+        matchLabels:
+          enforce-security: "true"
+    requireImageDigest:
+      enabled: false
+    enforceResources:
+      enabled: false
+    restrictRegistries:
+      enabled: true
+      failureAction: enforce
+      resourceKinds: [Pod]
+      approvedRegistries: [registry.example.com]
+      namespaceSelector:
+        matchLabels:
+          restrict-registries: "true"
+    requireLabels:
+      enabled: false
   mutate:
-    addDefaultLabels:
-      labels:
-        managed-by: "kyverno"
-        team: "my-team"
-        cost-center: "engineering"
+    enabled: false
+  generate:
+    enabled: false
 ```
 
----
+Render bằng `--show-only templates/cpol-val-disallow-root-user.yaml` và `--show-only templates/cpol-val-restrict-registries.yaml`.
 
-## 📁 Files You'll Use
+### Tạo default-deny NetworkPolicy cho Namespace mới
 
+```yaml
+policies:
+  validate:
+    enabled: false
+  mutate:
+    enabled: false
+  generate:
+    enabled: true
+    generateNetworkPolicy:
+      enabled: true
+      resourceKinds: [Namespace]
+      namespaceSelector:
+        matchLabels:
+          network-policy: "enabled"
+      policyName: default-deny-ingress
+      podSelector: {}
+      policyTypes: [Ingress]
+      allowedPorts: []
 ```
-use-cases/templates-chart/
-├── values.yaml                    # ← Main config (comprehensive)
-├── values-custom.yaml             # ← Template with 15 examples
-│
-└── templates/
-    ├── cpol-mut-add-default-labels.yaml       # ← Templated
-    ├── cpol-mut-add-security-context.yaml     # ← Templated
-    ├── cpol-mut-inject-istio.yaml            # ← Templated
-    ├── cpol-mut-add-default-resources.yaml    # ← Templated
-    ├── cpol-mut-add-monitoring.yaml          # ← Templated
-    └── cpol-mut-set-memory-requests.yaml     # ← Templated
-```
 
----
+Sau khi apply policy, tạo Namespace cùng label trong một request:
 
-## ❓ FAQ
-
-### Q: Do I need to edit the YAML policy files?
-**A:** No! Just customize values.yaml or values-custom.yaml
-
-### Q: Can I have different settings for dev vs prod?
-**A:** Yes! Create values-dev.yaml and values-prod.yaml, then:
 ```bash
-# Deploy to dev
-helm upgrade kyverno . -f values-dev.yaml
-
-# Deploy to prod
-helm upgrade kyverno . -f values-prod.yaml
+cat <<'EOF' | kubectl apply -f -
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: protected-team
+  labels:
+    network-policy: "enabled"
+EOF
 ```
 
-### Q: What if I make a mistake?
-**A:** Easy! Just revert:
+Không dùng `kubectl create namespace` rồi mới gắn label, vì Generate rule sẽ không được kích hoạt.
+
+## Kiểm tra nhanh
+
 ```bash
-# Deploy with defaults again
-helm upgrade kyverno .
-```
-
-### Q: Can I customize via command line?
-**A:** Yes!
-```bash
-helm upgrade kyverno . \
-  --set policies.mutate.addDefaultLabels.enabled=false \
-  --set policies.mutate.addDefaultResources.resources.requests.cpu=100m
-```
-
-### Q: How do I see what values are applied?
-**A:** Run:
-```bash
-helm get values kyverno
-```
-
----
-
-## 🆘 Troubleshooting
-
-### Policy didn't apply?
-```bash
-# Check if policy is created
+helm template my-policies ./templates-chart --values ./values-myorg.yaml >/dev/null
 kubectl get clusterpolicy
-
-# Check policy details
-kubectl describe clusterpolicy add-default-labels
-
-# Check Kyverno logs
-kubectl logs -n kyverno-system -l app=kyverno
+kubectl get policyreport -A
+kubectl logs -n kyverno -l app.kubernetes.io/name=kyverno --tail=200
 ```
 
-### Wrong values being used?
+## Lỗi thường gặp
+
+| Triệu chứng | Nguyên nhân thường gặp | Cách xử lý |
+|---|---|---|
+| Policy không xuất hiện | `enabled` ở cấp nhóm hoặc policy là `false` | Kiểm tra file values và output `helm template` |
+| Policy không match Pod | Namespace thiếu label hoặc kind không khớp | So sánh namespace labels với `namespaceSelector` |
+| Generate không tạo resource | Label Namespace được thêm sau khi tạo | Tạo Namespace kèm label trong manifest EOF |
+| Clone Secret bị từ chối | Background controller thiếu quyền Secret | Áp dụng RBAC tạm thời trong Lab 3 của [WORKSHOP_LAB.md](WORKSHOP_LAB.md) |
+| NGINX crash với non-root | NGINX cần ghi cache/runtime directory | Dùng writable volume và NGINX config phù hợp, hoặc dùng BusyBox khi test policy |
+
+## Dọn thử nghiệm
+
 ```bash
-# See current values
-helm get values kyverno
-
-# See full manifest (with rendered values)
-helm get manifest kyverno | grep -A 20 "name: add-default-labels"
+kubectl delete pod custom-policy-test -n dev --ignore-not-found
+kubectl delete clusterpolicy add-security-context add-default-resources --ignore-not-found
+kubectl label namespace dev auto-sec-context- auto-add-requests- --ignore-not-found
 ```
 
-### Need to reset?
-```bash
-# Deploy with default values
-helm upgrade kyverno .
-```
-
----
-
-## 🚦 Recommended Flow
-
-1. **Learn** (20 min)
-   - Read [CUSTOMIZATION_GUIDE.md](../CUSTOMIZATION_GUIDE.md)
-
-2. **Start Simple** (5 min)
-   - Copy values-custom.yaml
-   - Uncomment one example
-   - Deploy
-
-3. **Experiment** (30 min)
-   - Try different customizations
-   - Test in dev environment
-   - Monitor policy violations
-
-4. **Finalize** (15 min)
-   - Create values-prod.yaml with final settings
-   - Document your customizations
-   - Deploy to production
-
-5. **Monitor** (Ongoing)
-   - Check policy violations: `kubectl get policyreport -A`
-   - Adjust settings as needed
-   - Keep values in Git for version control
-
----
-
-## 💡 Pro Tips
-
-1. **Version control your values**
-   ```bash
-   git add values-myorg.yaml
-   git commit -m "Customized policies for our org"
-   ```
-
-2. **Start with audit mode**
-   ```yaml
-   failureAction: audit  # Log violations, don't block
-   ```
-   Then switch to enforce after testing:
-   ```yaml
-   failureAction: enforce  # Block policy violations
-   ```
-
-3. **Test before deploying to prod**
-   ```bash
-   # Deploy to dev first
-   helm upgrade kyverno . -f values-dev.yaml
-   
-   # Test with sample workloads
-   kubectl run test --image=nginx -n test-ns
-   
-   # Check violations
-   kubectl get policyreport -n test-ns
-   ```
-
-4. **Keep defaults commented**
-   ```yaml
-   # Original: managed-by: "kyverno"
-   managed-by: "our-org"  # Our customization
-   ```
-
-5. **Use namespaceSelector to apply selectively**
-   ```yaml
-   namespaceSelector:
-     matchLabels:
-       enforce-policy: "true"
-   ```
-   Then only label namespaces where you want the policy:
-   ```bash
-   kubectl label ns production enforce-policy=true
-   ```
-
----
-
-## 🎓 Next Steps
-
-1. ✅ You've read this quick start
-2. 📖 Read [CUSTOMIZATION_GUIDE.md](../CUSTOMIZATION_GUIDE.md) for details
-3. 📋 Copy and customize values-custom.yaml
-4. 🚀 Deploy: `helm upgrade kyverno . -f values-myorg.yaml`
-5. ✔️ Verify: `kubectl get clusterpolicy`
-6. 🧪 Test with sample workloads
-7. 📊 Monitor policy violations
-8. 🔧 Iterate and improve
-
----
-
-**Ready to customize?** Let's go! 🚀
-
-Start with:
-```bash
-cd use-cases/templates-chart
-cp values-custom.yaml values-myorg.yaml
-vi values-myorg.yaml  # Uncomment an example
-helm upgrade kyverno . -f values-myorg.yaml
-```
-
-Then read [CUSTOMIZATION_GUIDE.md](../CUSTOMIZATION_GUIDE.md) for all options!
+Chỉ xóa resource bạn đã tạo. Xem [WORKSHOP_LAB.md](WORKSHOP_LAB.md) để có cleanup đầy đủ theo từng Lab.

@@ -308,16 +308,6 @@
 #       secretName: "private-registry"
 #       targetSecretName: "private-registry"
 #
-#     cloneSecretOnNamespaceCreation:
-#       enabled: true
-#       namespaceSelector:
-#         matchLabels:
-#           clone-application-secret: "true"
-#       sourceNamespace: "platform-secrets"
-#       sourceSecretName: "application-config"
-#       targetSecretName: "application-config"
-
-
 #==============================================================================
 # EXAMPLE 9: SELECTIVE POLICIES ONLY
 #==============================================================================

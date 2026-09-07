@@ -410,37 +410,6 @@ policies:
           cpu: "100m"
           memory: "128Mi"
 
-    # Policy: Clone a named secret when a namespace is created
-    # Scope: Cluster-wide (triggered on namespace creation)
-    cloneSecretOnNamespaceCreation:
-      enabled: true
-      resourceKinds:
-        - Namespace
-      # Leave matchLabels empty ({}) to apply to every newly created namespace.
-      namespaceSelector:
-        matchLabels: {}
-      sourceNamespace: "default"
-      sourceSecretName: "registry-credentials"
-      targetSecretName: "registry-credentials"
-
-    # Policy: Generate a default ingress-deny NetworkPolicy
-    # Scope: Cluster-wide (triggered on namespace creation)
-    defaultNetworkPolicy:
-      enabled: true
-      resourceKinds:
-        - Namespace
-      # This default preserves the existing selector semantics.
-      namespaceSelector:
-        matchExpressions:
-          - key: "network-policy"
-            operator: In
-            values:
-              - "default"
-      policyName: "default-deny-ingress"
-      podSelector: {}
-      policyTypes:
-        - Ingress
-
 #==============================================================================
 # GLOBAL SETTINGS
 #==============================================================================

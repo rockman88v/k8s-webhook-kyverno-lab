@@ -69,9 +69,5 @@ policies:
       podLimits:
         max: {cpu: "4", memory: 4Gi}
         min: {cpu: 100m, memory: 128Mi}
-    cloneSecretOnNamespaceCreation:
-      enabled: false
-    defaultNetworkPolicy:
-      enabled: false
 global:
   background: true
