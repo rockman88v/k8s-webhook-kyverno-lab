@@ -139,7 +139,7 @@ spec:
 EOF
 ```
 
-Kết quả mong đợi: request bị từ chối vì registry không nằm trong danh sách được phép. `docker.io/untrusted/app:v1` không phải ca kiểm thử hợp lệ vì `docker.io` đang được cho phép.
+Kết quả mong đợi: request bị từ chối vì registry `registry.example.invalid` không nằm trong danh sách các registry được allow.
 
 ### Bước 1.6: Kiểm tra resources
 
